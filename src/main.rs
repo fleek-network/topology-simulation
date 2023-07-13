@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
@@ -48,14 +48,14 @@ fn scatter_plot(
             .push((x, y));
     }
 
-    let root_area = BitMapBackend::new(output_path, (1000, 800)).into_drawing_area();
+    let root_area = BitMapBackend::new(output_path, (1200, 800)).into_drawing_area();
     root_area.fill(&WHITE).unwrap();
 
-    let delta = 2.0;
-    x_min -= delta;
-    x_max += delta;
-    y_min -= delta;
-    y_max += delta;
+    // make the plot wider
+    x_min -= 5.;
+    x_max += 5.;
+    y_min -= 40.;
+    y_max += 20.;
 
     let mut ctx = ChartBuilder::on(&root_area)
         .set_label_area_size(LabelAreaPosition::Left, 40)
@@ -122,15 +122,25 @@ fn run_kmedoids(
     kmedoids::fasterpam(dis_matrix, &mut meds, 100)
 }
 
-fn read_matrix() -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
+fn read_latency_matrix(path: &str) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
     let mut buf = Vec::new();
 
-    let mut rdr = ReaderBuilder::new().from_path("matrix.csv")?;
+    let mut rdr = ReaderBuilder::new().from_path(path)?;
     for result in rdr.deserialize() {
         let record: Vec<f32> = result?;
         buf.push(record);
     }
     Ok(buf)
+}
+
+fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>> {
+    let mut metadata = BTreeMap::new();
+    let mut rdr = ReaderBuilder::new().from_path(path)?;
+    for result in rdr.deserialize() {
+        let record: ServerData = result?;
+        metadata.insert(record.id, record);
+    }
+    Ok(metadata)
 }
 
 fn toy_example() {
@@ -157,8 +167,33 @@ fn toy_example() {
 }
 
 fn main() {
-    toy_example();
+    let matrix = read_latency_matrix("matrix.csv").unwrap();
+    let metadata = read_metadata("metadata.csv").unwrap();
 
-    //let matrix = read_matrix();
-    //println!("{:?}", matrix);
+    let mut data_points = Array::zeros((metadata.len(), 2));
+    metadata
+        .iter()
+        .enumerate()
+        .for_each(|(i, (_, server_data))| {
+            data_points[[i, 1]] = server_data.latitude as f64;
+            data_points[[i, 0]] = server_data.longitude as f64;
+        });
+
+    scatter_plot(
+        &data_points,
+        &vec![0; data_points.shape()[0]],
+        "before.png",
+        "Before Clustering",
+    );
+
+    let data_points: Vec<(f64, f64)> = metadata
+        .iter()
+        .map(|(_id, server_data)| (server_data.latitude as f64, server_data.longitude as f64))
+        .collect();
+
+    //let mut dissim_matrix = Array::zeros((matrix.len(), matrix.len()));
+
+    println!("meta: {:?}", metadata);
+
+    println!("{:?}", matrix);
 }
