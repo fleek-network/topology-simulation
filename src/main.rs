@@ -186,14 +186,16 @@ fn main() {
         "Before Clustering",
     );
 
-    let data_points: Vec<(f64, f64)> = metadata
-        .iter()
-        .map(|(_id, server_data)| (server_data.latitude as f64, server_data.longitude as f64))
-        .collect();
-
-    //let mut dissim_matrix = Array::zeros((matrix.len(), matrix.len()));
-
-    println!("meta: {:?}", metadata);
-
-    println!("{:?}", matrix);
+    let mut dissim_matrix = Array::zeros((matrix.len(), matrix.len()));
+    for i in 0..matrix.len() {
+        for j in 0..matrix.len() {
+            dissim_matrix[[i, j]] = matrix[i][j] as f64;
+        }
+    }
+    let num_servers = dissim_matrix.shape()[0];
+    let optimal_cluster_size = 8;
+    let num_clusters = num_servers / optimal_cluster_size;
+    let (_, assignment, num_iterstions, _) = run_kmedoids(&dissim_matrix, num_clusters);
+    scatter_plot(&data_points, &assignment, "after.png", "After Clustering");
+    println!("num_iterstions: {num_iterstions}");
 }
