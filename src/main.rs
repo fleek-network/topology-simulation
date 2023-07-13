@@ -76,8 +76,16 @@ fn scatter_plot(
             colors[*cluster_index]
         };
         ctx.draw_series(points.iter().map(|point| Circle::new(*point, 5, color)))
-            .unwrap();
+            .unwrap()
+            .label(format!("Cluster {cluster_index}"))
+            .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color));
     });
+
+    ctx.configure_series_labels()
+        .border_style(BLACK)
+        .background_style(WHITE.mix(0.8))
+        .draw()
+        .unwrap();
 }
 
 fn sample_cluster(
