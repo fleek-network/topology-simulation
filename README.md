@@ -1,5 +1,11 @@
 # Fleek Network Topology Simulations
 
+## Running the simulation 
+
+```bash
+cargo run -r
+```
+
 ## Generating the sample data
 
 The simulation contains a parser to use the data that can be found at https://wonderproxy.com/blog/a-day-in-the-life-of-the-internet/.
