@@ -1,2 +1,4 @@
 /target
+pings*.csv
+server*.csv
 *.png

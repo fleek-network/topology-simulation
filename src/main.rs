@@ -7,18 +7,16 @@ use serde::{Deserialize, Serialize};
 use csv::ReaderBuilder;
 use std::error::Error;
 
-use plotters::prelude::*;
+use plotters::{
+    prelude::*,
+    style::full_palette::{INDIGO, ORANGE, PURPLE},
+};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ServerData {
     id: u16,
-    name: String,
     title: String,
-    location: String,
-    state: String,
     country: String,
-    state_abbv: String,
-    continent: String,
     latitude: f32,
     longitude: f32,
 }
@@ -66,15 +64,11 @@ fn scatter_plot(
 
     ctx.configure_mesh().draw().unwrap();
 
-    let colors = vec![BLUE, CYAN, RED, MAGENTA, YELLOW, GREEN, RED];
+    let color_map = DerivedColorMap::new(&[RED, ORANGE, YELLOW, GREEN, BLUE, INDIGO, PURPLE]);
 
     series.iter().for_each(|(&cluster_index, points)| {
-        let color = if series.len() > colors.len() {
-            let h = *cluster_index as f64 / series.len() as f64;
-            ViridisRGB::get_color(h)
-        } else {
-            colors[*cluster_index]
-        };
+        let color = color_map.get_color(*cluster_index as f64 / series.len() as f64);
+
         ctx.draw_series(points.iter().map(|point| Circle::new(*point, 5, color)))
             .unwrap()
             .label(format!("Cluster {cluster_index}"))
