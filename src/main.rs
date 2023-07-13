@@ -143,6 +143,37 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
     Ok(metadata)
 }
 
+fn calculate_cluster_metrics(
+    assignment: &[usize],
+    latency_matrix: &Vec<Vec<f32>>,
+) -> (Vec<f64>, Vec<usize>, f64) {
+    let mut clusters = HashMap::new();
+    for (i, cluster_index) in assignment.iter().enumerate() {
+        clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
+    }
+    let mut mean_inner_cluster_latencies = Vec::new();
+    let mut cluster_node_count = Vec::new();
+    let mut inner_cluster_latency_sums = 0.0;
+    for (cluster_index, node_indices) in clusters.iter() {
+        let mut latency_sum = 0.0;
+        let mut count = 0;
+        for i in 0..node_indices.len() {
+            for j in i + 1..node_indices.len() {
+                latency_sum += latency_matrix[i][j] as f64;
+                count += 1;
+                inner_cluster_latency_sums += latency_matrix[i][j] as f64;
+            }
+        }
+        mean_inner_cluster_latencies.push(latency_sum / count as f64);
+        cluster_node_count.push(node_indices.len());
+    }
+    (
+        mean_inner_cluster_latencies,
+        cluster_node_count,
+        inner_cluster_latency_sums,
+    )
+}
+
 fn toy_example() {
     let cluster1 = sample_cluster(1., 1., 1., 1., 10);
     let cluster2 = sample_cluster(2., 2., 1., 1., 10);
@@ -197,5 +228,20 @@ fn main() {
     let num_clusters = num_servers / optimal_cluster_size;
     let (_, assignment, num_iterstions, _) = run_kmedoids(&dissim_matrix, num_clusters);
     scatter_plot(&data_points, &assignment, "after.png", "After Clustering");
+
+    let (avg_cluster_latencies, cluster_counts, cluster_latency_sum) =
+        calculate_cluster_metrics(&assignment, &matrix);
+
+    println!("num_clusters: {num_clusters}");
     println!("num_iterstions: {num_iterstions}");
+    println!("cluster_latency_sum: {cluster_latency_sum}");
+    println!();
+    println!("clusters:");
+
+    for i in 0..avg_cluster_latencies.len() {
+        println!(
+            "cluster {i} - count: {}, avg_latency: {}",
+            cluster_counts[i], avg_cluster_latencies[i]
+        );
+    }
 }
