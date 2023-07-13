@@ -2,6 +2,8 @@
 
 ## Generating the sample data
 
+The simulation contains a parser to use the data that can be found at https://wonderproxy.com/blog/a-day-in-the-life-of-the-internet/.
+
 ```bash
 # get the raw ping data
 curl https://wp-public.s3.amazonaws.com/pings/pings-2020-07-19-2020-07-20.csv.gz -o pings.csv.gz
