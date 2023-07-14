@@ -174,7 +174,7 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
 fn calculate_cluster_metrics(
     assignment: &[usize],
     latency_matrix: &[Vec<f32>],
-) -> (Vec<f64>, Vec<usize>, f64, f64) {
+) -> (Vec<f64>, Vec<f64>, f64, f64) {
     let mut clusters = BTreeMap::new();
     for (i, cluster_index) in assignment.iter().enumerate() {
         clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
@@ -201,7 +201,7 @@ fn calculate_cluster_metrics(
         }
         mean_inner_cluster_latencies.push(latency_sum / count as f64);
         inner_cluster_latency_mean_sums += latency_sum / count as f64;
-        cluster_node_count.push(node_indices.len());
+        cluster_node_count.push(node_indices.len() as f64);
     }
     (
         mean_inner_cluster_latencies,
@@ -352,6 +352,31 @@ fn main() {
         "K-Medoids Cluster Latency",
     );
 
+    let mut min_val = f64::MAX;
+    let mut max_val = f64::MIN;
+    cluster_counts_baseline.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    cluster_counts.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    histogram(
+        "random_assignment_sizes_histogram.png",
+        &cluster_counts_baseline,
+        min_val,
+        max_val,
+        "Random Assignment Cluster Sizes",
+    );
+    histogram(
+        "kmedoids_sizes_histogram.png",
+        &cluster_counts,
+        min_val,
+        max_val,
+        "K-Medoids Cluster Sizes",
+    );
+
     let mut table_rows = vec![];
     for i in 0..avg_cluster_latencies.len() {
         table_rows.push(format!(
@@ -414,6 +439,12 @@ fn main() {
     <div style="display: flex;">
         <img src="random_assignment_latency_histogram.png" width=800 />
         <img src="kmedoids_latency_histogram.png" width=800 />
+    </div>
+
+    <h1>Cluster Sizes Histograms</h1>
+    <div style="display: flex;">
+        <img src="random_assignment_sizes_histogram.png" width=800 />
+        <img src="kmedoids_sizes_histogram.png" width=800 />
     </div>
 <body>
 </html>
