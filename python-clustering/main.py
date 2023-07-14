@@ -100,14 +100,28 @@ def run():
     svg_plot_before = scatter_plot(data_points, np.zeros(data_points.shape[0], dtype='int'), title='Before Clustering')
     
     embedding = MDS(n_components=2, metric=True, dissimilarity='precomputed', normalized_stress='auto')
-    dis_matrix = np.zeros(matrix.shape)
     matrix = matrix.to_numpy()
+
+    # TODO: average upper and lower triangular matrices
     i_lower = np.tril_indices(matrix.shape[0], -1)
     matrix[i_lower] = matrix.T[i_lower]
     data_points_mds = embedding.fit_transform(matrix)
 
-
     svg_plot_mds = scatter_plot(data_points_mds, np.zeros(data_points.shape[0], dtype='int'), title='Before Clustering MDS')
+
+    num_nodes = data_points.shape[0]
+    num_clusters = num_nodes // 8
+    clf = KMeansConstrained(
+        n_clusters=num_clusters,
+        size_min=2,
+        size_max=10,
+        random_state=0
+    )
+    clf.fit_predict(data_points_mds)
+    clf.cluster_centers_
+    clf.labels_
+    svg_plot_kmeans = scatter_plot(data_points, clf.labels_, title='KMeansConstrained')
+    svg_plot_kmeans_mds = scatter_plot(data_points_mds, clf.labels_, title='KMeansConstrained (MDS embeddings)')
 
     
 
@@ -129,8 +143,11 @@ def run():
         <hr>
         {svg_plot_before}
         <hr>
-        <hr>
         {svg_plot_mds}
+        <hr>
+        {svg_plot_kmeans_mds}
+        <hr>
+        {svg_plot_kmeans}
         <hr>
     <body>
     </html>"""
