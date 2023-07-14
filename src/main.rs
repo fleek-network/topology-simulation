@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use csv::ReaderBuilder;
@@ -99,6 +100,17 @@ fn run_kmedoids(
         &mut rand::thread_rng(),
     );
     kmedoids::fasterpam(dis_matrix, &mut meds, 100)
+}
+
+fn get_random_assignment(num_clusters: usize, num_nodes: usize) -> Vec<usize> {
+    let mut rng = rand::thread_rng();
+
+    let mut assignment = vec![0; num_nodes];
+    for node_idx in 0..num_nodes {
+        let cluster_index = rng.gen_range(0..num_clusters);
+        assignment[node_idx] = cluster_index;
+    }
+    assignment
 }
 
 fn read_latency_matrix(path: &str) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
@@ -242,6 +254,25 @@ fn main() {
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 8;
     let num_clusters = num_servers / optimal_cluster_size;
+
+    // establish baseline by random assignment
+    let random_assignment = get_random_assignment(num_clusters, num_servers);
+    scatter_plot(
+        &mut plot_buffer,
+        &data_points,
+        &random_assignment,
+        "Random Assignment",
+    );
+    let (avg_cluster_latencies_baseline, cluster_counts_baseline, cluster_latency_sum_baseline) =
+        calculate_cluster_metrics(&random_assignment, &matrix);
+    let mut table_rows_baseline = vec![];
+    for i in 0..avg_cluster_latencies_baseline.len() {
+        table_rows_baseline.push(format!(
+            "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
+            cluster_counts_baseline[i], avg_cluster_latencies_baseline[i]
+        ));
+    }
+
     let (_, assignment, num_iterations, _) = run_kmedoids(&dissim_matrix, num_clusters);
     scatter_plot(
         &mut plot_buffer,
@@ -281,6 +312,20 @@ fn main() {
     <hr>
     {plot_buffer}
     <hr>
+    <h2>Random Assignment</h2>
+    <p>
+        Num. Clusters: {num_clusters}
+        Latency Sum: {cluster_latency_sum_baseline}
+    </p>
+    <table>
+        <tr>
+            <th>Cluster</th>
+            <th>Count</th>
+            <th>Avg. Latency</th>
+        </tr>
+        {}
+    </table>
+    <h2>K-Medoids</h2>
     <p>
         Num. Clusters: {num_clusters}
         Num. Iterations: {num_iterations}
@@ -297,6 +342,7 @@ fn main() {
 <body>
 </html>
           "#,
+        table_rows_baseline.join("\n"),
         table_rows.join("\n")
     );
 
