@@ -24,6 +24,42 @@ struct ServerData {
     longitude: f32,
 }
 
+fn histogram(path: &str, values: &[f64], title: &str) {
+    let root = BitMapBackend::new(path, (1200, 800)).into_drawing_area();
+    root.fill(&WHITE).unwrap();
+    let data: Vec<u32> = values.iter().map(|v| v.round() as u32).collect();
+    let min_val = *data.iter().min().unwrap();
+    let max_val = *data.iter().max().unwrap();
+
+    let mut chart = ChartBuilder::on(&root)
+        .x_label_area_size(35)
+        .y_label_area_size(40)
+        .margin(5)
+        .caption(title, ("sans-serif", 40.0))
+        .build_cartesian_2d((min_val..max_val).into_segmented(), 0u32..10u32)
+        .unwrap();
+
+    chart
+        .configure_mesh()
+        .disable_x_mesh()
+        .bold_line_style(WHITE.mix(0.3))
+        .y_desc("Count")
+        .x_desc("Bucket")
+        .axis_desc_style(("sans-serif", 15))
+        .draw()
+        .unwrap();
+
+    chart
+        .draw_series(
+            Histogram::vertical(&chart)
+                .style(BLUE.mix(0.5).filled())
+                .data(data.iter().map(|x: &u32| (*x, 1))),
+        )
+        .unwrap();
+
+    root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+}
+
 fn scatter_plot(
     buffer: &mut String,
     data: &Array<f64, Dim<[usize; 2]>>,
@@ -272,6 +308,7 @@ fn main() {
         cluster_latency_sum_baseline,
         cluster_latency_mean_sum_baseline,
     ) = calculate_cluster_metrics(&random_assignment, &matrix);
+
     let mut table_rows_baseline = vec![];
     for i in 0..avg_cluster_latencies_baseline.len() {
         table_rows_baseline.push(format!(
@@ -285,6 +322,17 @@ fn main() {
 
     let (avg_cluster_latencies, cluster_counts, cluster_latency_sum, cluster_latency_mean_sum) =
         calculate_cluster_metrics(&assignment, &matrix);
+
+    histogram(
+        "random_assignment_latency_histogram.png",
+        &avg_cluster_latencies_baseline,
+        "Random Assignment Cluster Latency",
+    );
+    histogram(
+        "kmedoids_latency_histogram.png",
+        &avg_cluster_latencies,
+        "K-Medoids Cluster Latency",
+    );
 
     let mut table_rows = vec![];
     for i in 0..avg_cluster_latencies.len() {
@@ -343,11 +391,17 @@ fn main() {
         </tr>
         {}
     </table>
+
+    <h1>Cluster Latency Histograms</h1>
+    <div style="display: flex;">
+        <img src="random_assignment_latency_histogram.png" width=800 />
+        <img src="kmedoids_latency_histogram.png" width=800 />
+    </div>
 <body>
 </html>
           "#,
         table_rows_baseline.join("\n"),
-        table_rows.join("\n")
+        table_rows.join("\n"),
     );
 
     std::fs::write("report.html", html).unwrap();
