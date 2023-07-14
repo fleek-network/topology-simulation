@@ -4,6 +4,7 @@ use base64::Engine;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use petal_clustering::{Fit, HDbscan};
+use petal_neighbors::distance::Euclidean;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -287,8 +288,8 @@ fn get_distance_matrix(data: &Array<f64, Dim<[usize; 2]>>) -> Array<f64, Dim<[us
 
 fn toy_example() {
     let cluster1 = sample_cluster(1., 1., 1., 1., 10);
-    let cluster2 = sample_cluster(2., 2., 1., 1., 10);
-    let cluster3 = sample_cluster(3., 3., 2., 2., 20);
+    let cluster2 = sample_cluster(4., 3., 1., 1., 10);
+    let cluster3 = sample_cluster(5., 5., 1., 1., 20);
     let data = ndarray::concatenate(
         ndarray::Axis(0),
         &[(&cluster1).into(), (&cluster2).into(), (&cluster3).into()],
@@ -307,10 +308,89 @@ fn toy_example() {
     let dis_matrix = get_distance_matrix(&data);
     let (_, assignment, _, _) = run_kmedoids(&dis_matrix, 3);
 
-    scatter_plot(&mut plot_buffer, &data, &assignment, "After Clustering");
+    scatter_plot(&mut plot_buffer, &data, &assignment, "K-Medoids Clustering");
+
+    //
+    let (clusters, excess) = HDbscan {
+        min_cluster_size: 8,
+        min_samples: 8,
+        eps: 0.1,
+        alpha: 1.0,
+        metric: Euclidean::default(),
+        boruvka: true,
+    }
+    .fit(&dis_matrix);
+
+    let num_clusters = clusters.len();
+    let mut assignment = vec![999; dis_matrix.nrows()];
+    for (cluster, nodes) in clusters.values().enumerate() {
+        for node in nodes {
+            assignment[*node] = cluster;
+        }
+    }
+    scatter_plot(
+        &mut plot_buffer,
+        &data,
+        &assignment,
+        "HBDSCAN Clustering (dis_matrix)",
+    );
+
+    let (clusters, excess) = HDbscan {
+        min_cluster_size: 8,
+        min_samples: 8,
+        eps: 0.1,
+        alpha: 1.0,
+        metric: Euclidean::default(),
+        boruvka: true,
+    }
+    .fit(&data);
+
+    let num_clusters = clusters.len();
+    let mut assignment = vec![999; dis_matrix.nrows()];
+    for (cluster, nodes) in clusters.values().enumerate() {
+        for node in nodes {
+            assignment[*node] = cluster;
+        }
+    }
+    scatter_plot(
+        &mut plot_buffer,
+        &data,
+        &assignment,
+        "HBDSCAN Clustering (embeddings)",
+    );
+
+    //
+
+    let html = format!(
+        r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Topology Simulation Report</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap');
+        body {{ font-family: '{FONT}', monospace }}
+        tr:nth-child(even) {{
+            background-color: rgba(150, 212, 212, 0.4);
+        }}
+    </style>
+</head>
+<body>
+    <h1>Toy Example Report</h1>
+    <p>The clustering </p>
+    <hr>
+    {plot_buffer}
+    <hr>
+<body>
+</html>
+          "#
+    );
+    std::fs::write("toy_report.html", html).unwrap();
 }
 
 fn main() {
+    toy_example();
+
     let matrix = read_latency_matrix("matrix.csv").unwrap();
     let metadata = read_metadata("metadata.csv").unwrap();
 

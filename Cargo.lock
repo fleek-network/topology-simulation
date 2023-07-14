@@ -96,6 +96,7 @@ dependencies = [
  "ndarray",
  "ndarray-rand",
  "petal-clustering",
+ "petal-neighbors",
  "plotters",
  "rand",
  "serde",

@@ -11,6 +11,7 @@ ndarray-rand = "0.14.0"
 plotters = "0.3.3"
 kmedoids = "0.4.3"
 petal-clustering = "0.5.1"
+petal-neighbors = "0.8.0"
 csv = "1.2.2"
 serde = { version = "1.0.9", features = ["derive"] }
 base64 = "0.21.2"

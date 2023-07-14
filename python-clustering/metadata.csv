@@ -1,0 +1,214 @@
+id,title,country,latitude,longitude
+0,Joao Pessoa,Brazil,-7.0833,-34.8333
+1,Toronto,Canada,43.6481,-79.4042
+2,Prague,Czech Republic,50.0833,14.4167
+3,Paris,France,48.8742,2.347
+4,Tokyo,Japan,35.6833,139.7667
+5,Amsterdam,Netherlands,52.3,4.7
+6,Auckland,New Zealand,-36.8404,174.7399
+7,Moscow,Russia,55.7517,37.6178
+8,Stockholm,Sweden,59.32,18.09
+9,London,United Kingdom,51.5171,-0.1062
+10,Dallas,United States,32.7828,-96.8039
+11,New York,United States,40.7269,-73.6497
+12,Boston,United States,42.3583,-71.0603
+13,Miami,United States,25.765,-80.2
+14,Washington,United States,38.9694,-77.3864
+15,Barcelona,Spain,41.3857,2.1699
+16,Atlanta,United States,33.7489,-84.3881
+17,Dublin,Ireland,53.3478,-6.2597
+18,Vienna,Austria,48.2088,16.3726
+19,Brisbane,Australia,-27.4667,153.0333
+20,Chicago,United States,41.85,-87.65
+21,Seattle,United States,47.6097,-122.3331
+22,Tallinn,Estonia,59.4339,24.7549
+23,Copenhagen,Denmark,55.675,12.5687
+24,Milan,Italy,45.464,9.1916
+25,Ljubljana,Slovenia,46.0556,14.5083
+26,Frankfurt,Germany,50.1167,8.6833
+27,Fremont,United States,37.5483,-121.9875
+28,Warsaw,Poland,52.23,21.0108
+29,Kiev,Ukraine,50.45,30.5233
+30,Zurich,Switzerland,47.369,8.538
+31,Malaysia,Malaysia,3.1333,101.6833
+32,Los Angeles,United States,34.0522,-118.2428
+33,Houston,United States,29.7631,-95.3631
+34,Baltimore,United States,39.2833,-76.6167
+35,Cape Town,South Africa,-33.9767,18.4244
+36,Bruges,Belgium,51.2167,3.233
+37,Lisbon,Portugal,38.7,-9.1833
+38,Helsinki,Finland,60.21,24.66
+39,New Delhi,India,28.585,77.2
+40,Budapest,Hungary,47.5,19.05
+41,Bergen,Norway,60.38,5.34
+42,Medellin,Colombia,6.2457,-75.5822
+43,Buenos Aires,Argentina,-34.6036,-58.3817
+44,San Antonio,United States,29.4239,-98.4933
+45,Montreal,Canada,45.5081,-73.555
+46,Vancouver,Canada,49.2505,-123.1119
+47,Roubaix,France,50.69,3.1817
+48,Kansas City,United States,39.0997,-94.5783
+49,Hyderabad,India,17.3667,78.4667
+50,Jakarta,Indonesia,-6.1333,106.75
+51,Valencia,Spain,39.4767,-0.3744
+52,Christchurch,New Zealand,-43.5,172.6
+53,Graz,Austria,47.0703,15.4389
+54,Luxembourg,Luxembourg,49.6833,6.1167
+55,Cairo,Egypt,30.0566,31.2262
+56,Fez,Morocco,34.0442,-5.0019
+57,Bangkok,Thailand,13.75,100.4833
+58,Hanoi,Vietnam,21.0409,105.7981
+59,Istanbul,Turkey,41.0128,28.9744
+60,Philadelphia,United States,39.9522,-75.1642
+61,Santiago,Chile,-33.0333,-71.5417
+62,Hong Kong,Hong Kong,22.3,114.1667
+63,San Diego,United States,32.7153,-117.1564
+64,Heredia,Costa Rica,10.0,-84.1167
+65,Reykjavik,Iceland,64.1333,-21.9333
+66,Manchester,United Kingdom,53.48,-2.24
+67,Las Vegas,United States,36.08,-115.1522
+68,Columbus,United States,39.9611,-82.9989
+69,Detroit,United States,42.3314,-83.0458
+70,Portland,United States,45.5236,-122.675
+71,Halifax,Canada,44.65,-63.6
+72,Hangzhou,China,30.25,120.1667
+73,Chennai,India,13.081,80.274
+74,Salt Lake City,United States,40.75,-111.8833
+75,Tel Aviv,Israel,32.0833,34.8833
+76,Newcastle,United Kingdom,54.9833,-1.5833
+77,Orlando,United States,28.5381,-81.3794
+78,St Louis,United States,38.63,-90.2
+79,Coventry,United Kingdom,52.4081,-1.5106
+80,Minneapolis,United States,45.5579,-94.1632
+81,Sacramento,United States,38.5817,-121.4933
+82,Madrid,Spain,40.4,-3.6833
+83,Taipei,Taiwan,25.0333,121.5333
+84,Buffalo,United States,42.8864,-78.8786
+85,Tampa,United States,27.9472,-82.4586
+86,Panama,Panama,14.6317,-90.5236
+87,Guatemala,Guatemala,9.0,-79.5
+88,San Francisco,United States,37.775,-122.4183
+89,South Bend,United States,41.6833,-86.25
+90,Adelaide,Australia,-34.9333,138.5833
+91,Monticello,United States,42.2383,-91.1869
+92,Lima,Peru,-12.0433,-77.0283
+93,Asheville,United States,35.6008,-82.5542
+94,Pune,India,18.5236,73.8478
+95,Manila,Philippines,14.5833,120.9667
+96,Seoul,South Korea,37.5665,126.978
+97,Manhattan,United States,40.7903,-73.9597
+98,Dar es Salaam,Tanzania,-6.8,39.2833
+99,Riyadh,Saudi Arabia,24.6333,46.7167
+100,Thessaloniki,Greece,40.65,22.9
+101,Kampala,Uganda,0.3136,32.5811
+102,Osaka,Japan,34.6939,135.5022
+103,Oklahoma City,United States,35.4822,-97.535
+104,Colorado Springs,United States,38.8633,-104.7919
+105,Knoxville,United States,35.9728,-83.9422
+106,Sao Paulo,Brazil,-23.55,-46.6333
+107,Riga,Latvia,56.9489,24.1064
+108,Oslo,Norway,59.95,10.75
+109,Piscataway,United States,40.5456,-74.4608
+110,Nairobi,Kenya,-1.2833,36.8167
+111,Dubai,United Arab Emirates,24.95,55.3333
+112,Winnipeg,Canada,49.8994,-97.1392
+113,Cincinnati,United States,39.1,-84.5167
+114,Cleveland,United States,41.6911,-81.3419
+115,Wellington,New Zealand,-41.2865,174.7762
+116,New Orleans,United States,29.9667,-90.05
+117,Salem,United States,42.7883,-71.2008
+118,Albuquerque,United States,35.1107,-106.61
+119,Austin,United States,30.25,-97.75
+120,Des Moines,United States,41.5908,-93.6208
+121,Albany,United States,42.7469,-73.7589
+122,Bratislava,Slovakia,48.1439,17.1097
+123,Dhaka,Bangladesh,23.7,90.375
+124,St Petersburg,Russia,59.95,30.3
+125,Zagreb,Croatia,45.8167,15.9833
+126,Honolulu,United States,21.3,-157.8167
+127,Dusseldorf,Germany,51.2333,6.7833
+128,Sofia,Bulgaria,42.7,23.3333
+129,Maidstone,United Kingdom,51.272,0.529
+130,Nuremberg,Germany,49.45,11.0833
+131,Sapporo,Japan,43.0667,141.35
+132,Nis,Serbia,43.3,21.9
+133,Geneva,Switzerland,46.2,6.1
+134,Raleigh,United States,35.7789,-78.8003
+135,Roseburg,United States,43.2181,-123.3561
+136,Gothenburg,Sweden,57.7,11.9667
+137,Dagupan,Philippines,16.0333,120.3333
+138,Saskatoon,Canada,52.1333,-106.6833
+139,Perth,Australia,-31.9522,115.8589
+140,Secaucus,United States,40.782,-74.0676
+141,Karaganda,Kazakhstan,49.8333,73.1667
+142,Johannesburg,South Africa,-26.2044,28.0456
+143,Novosibirsk,Russia,55.0167,82.9333
+144,Guadalajara,Mexico,20.667,-103.35
+145,Shanghai,China,31.2,121.5
+146,Brunswick,United States,43.9108,-69.9631
+147,Pittsburgh,United States,40.4397,-79.9764
+148,Strasbourg,France,48.5734,7.7521
+149,Lahore,Pakistan,31.5497,74.3436
+150,Edinburgh,United Kingdom,55.9531,-3.1889
+151,Lausanne,Switzerland,46.5198,6.6335
+152,Rome,Italy,41.9,12.5
+153,Cardiff,United Kingdom,51.4833,-3.1833
+154,Limassol,Cyprus,34.6667,33.0333
+155,Tirana,Albania,41.326,19.816
+156,Kazan,Russia,55.7903,49.1347
+157,Palermo,Italy,38.1167,13.3667
+158,Dronten,Netherlands,52.5167,5.7167
+159,Groningen,Netherlands,53.2167,6.5667
+160,Rotterdam,Netherlands,51.9167,4.5
+161,Brno,Czech Republic,49.2,16.6167
+162,Ankara,Turkey,39.9333,32.8667
+163,Venice,Italy,45.6667,12.5333
+164,Hamburg,Germany,53.5653,10.0014
+165,Belfast,United Kingdom,54.597,-5.93
+166,Bursa,Turkey,40.1833,29.05
+167,Gdansk,Poland,54.35,18.6333
+168,Pristina,Kosovo,42.6667,21.1667
+169,Phnom Penh,Cambodia,11.55,104.9167
+170,Munich,Germany,48.1333,11.5667
+171,Ktis,Czech Republic,48.9181,14.1239
+172,Bogota,Colombia,4.5981,-74.0758
+173,Athens,Greece,37.9667,23.7167
+174,Alblasserdam,Netherlands,51.8667,4.65
+175,The Hague,Netherlands,52.0833,4.3167
+176,Westpoort,Netherlands,52.4058,4.8211
+177,La Ceiba,Honduras,15.7703,-86.7919
+178,Shenzhen,China,22.5431,114.0579
+179,Bangalore,India,12.9716,77.5946
+180,Liege,Belgium,50.6326,5.5797
+181,Vladivostok,Russia,43.1737,132.0065
+182,Redding,United States,40.5865,-122.3917
+183,Izmir,Turkey,38.4237,27.1428
+184,Bristol,United Kingdom,51.4545,-2.5879
+185,Eindhoven,Netherlands,51.4416,5.4697
+186,Indianapolis,United States,39.7684,-86.1581
+187,Memphis,United States,35.1495,-90.049
+188,Ho Chi Minh City,Vietnam,10.8231,106.6297
+189,Cromwell,United States,41.5951,-72.6454
+190,Bern,Switzerland,46.948,7.4474
+191,Syracuse,United States,43.0481,-76.1474
+192,Basel,Switzerland,47.5596,7.5886
+193,Brasilia,Brazil,-15.7942,-47.8822
+194,Lyon,France,45.7581,4.7651
+195,Algiers,Algeria,36.7538,3.0588
+196,Caracas,Venezuela,10.4806,-66.9036
+197,Lagos,Nigeria,6.5244,3.3792
+198,Tbilisi,Georgia,41.7141,44.8271
+199,Valletta,Malta,35.8989,14.5146
+200,Antwerp,Belgium,51.2194,4.4025
+201,Tunis,Tunisia,33.8869,9.5375
+202,Berkeley Springs,United States,39.627,-78.2272
+203,Beirut,Lebanon,33.8887,35.4698
+204,Ottawa,Canada,45.4215,-75.6972
+205,Lincoln,United States,40.8258,-96.6852
+206,Carlow,Ireland,52.8365,-6.9341
+207,Zhangjiakou,China,40.7675,114.8863
+208,Paramaribo,Suriname,5.852,-55.2038
+209,Cheltenham,United Kingdom,51.8994,-2.0783
+210,Falkenstein,Germany,50.475,12.365
+211,Accra,Ghana,5.6037,-0.187
+212,Douglas,Isle of Man,54.1523,-4.4861
