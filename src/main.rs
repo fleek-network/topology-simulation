@@ -137,7 +137,7 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
 fn calculate_cluster_metrics(
     assignment: &[usize],
     latency_matrix: &[Vec<f32>],
-) -> (Vec<f64>, Vec<usize>, f64) {
+) -> (Vec<f64>, Vec<usize>, f64, f64) {
     let mut clusters = BTreeMap::new();
     for (i, cluster_index) in assignment.iter().enumerate() {
         clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
@@ -145,6 +145,7 @@ fn calculate_cluster_metrics(
     let mut mean_inner_cluster_latencies = Vec::new();
     let mut cluster_node_count = Vec::new();
     let mut inner_cluster_latency_sums = 0.0;
+    let mut inner_cluster_latency_mean_sums = 0.0;
     for node_indices in clusters.values() {
         let mut latency_sum = 0.0;
         let mut count = 0;
@@ -159,12 +160,14 @@ fn calculate_cluster_metrics(
         }
 
         mean_inner_cluster_latencies.push(latency_sum / count as f64);
+        inner_cluster_latency_mean_sums += latency_sum / count as f64;
         cluster_node_count.push(node_indices.len());
     }
     (
         mean_inner_cluster_latencies,
         cluster_node_count,
         inner_cluster_latency_sums,
+        inner_cluster_latency_mean_sums,
     )
 }
 
@@ -263,8 +266,12 @@ fn main() {
         &random_assignment,
         "Random Assignment",
     );
-    let (avg_cluster_latencies_baseline, cluster_counts_baseline, cluster_latency_sum_baseline) =
-        calculate_cluster_metrics(&random_assignment, &matrix);
+    let (
+        avg_cluster_latencies_baseline,
+        cluster_counts_baseline,
+        cluster_latency_sum_baseline,
+        cluster_latency_mean_sum_baseline,
+    ) = calculate_cluster_metrics(&random_assignment, &matrix);
     let mut table_rows_baseline = vec![];
     for i in 0..avg_cluster_latencies_baseline.len() {
         table_rows_baseline.push(format!(
@@ -274,14 +281,9 @@ fn main() {
     }
 
     let (_, assignment, num_iterations, _) = run_kmedoids(&dissim_matrix, num_clusters);
-    scatter_plot(
-        &mut plot_buffer,
-        &data_points,
-        &assignment,
-        "After Clustering",
-    );
+    scatter_plot(&mut plot_buffer, &data_points, &assignment, "K-Medoids");
 
-    let (avg_cluster_latencies, cluster_counts, cluster_latency_sum) =
+    let (avg_cluster_latencies, cluster_counts, cluster_latency_sum, cluster_latency_mean_sum) =
         calculate_cluster_metrics(&assignment, &matrix);
 
     let mut table_rows = vec![];
@@ -314,8 +316,9 @@ fn main() {
     <hr>
     <h2>Random Assignment</h2>
     <p>
-        Num. Clusters: {num_clusters}
-        Latency Sum: {cluster_latency_sum_baseline}
+        Num. Clusters: {num_clusters}</br>
+        Latency Sum: {cluster_latency_sum_baseline}</br>
+        Latency Sum of All Cluster Means: {cluster_latency_mean_sum_baseline}</br>
     </p>
     <table>
         <tr>
@@ -327,9 +330,10 @@ fn main() {
     </table>
     <h2>K-Medoids</h2>
     <p>
-        Num. Clusters: {num_clusters}
-        Num. Iterations: {num_iterations}
-        Latency Sum: {cluster_latency_sum}
+        Num. Clusters: {num_clusters}</br>
+        Num. Iterations: {num_iterations}</br>
+        Latency Sum: {cluster_latency_sum}</br>
+        Latency Sum of All Cluster Means: {cluster_latency_mean_sum}</br>
     </p>
     <table>
         <tr>
