@@ -187,6 +187,10 @@ fn calculate_cluster_metrics(
         let mut latency_sum = 0.0;
         let mut count = 0;
 
+        if node_indices.is_empty() {
+            continue;
+        }
+
         for (i, &src) in node_indices.iter().enumerate() {
             for &dst in node_indices[i + 1..].iter() {
                 let sum = latency_matrix[src][dst] as f64;
@@ -195,7 +199,6 @@ fn calculate_cluster_metrics(
                 inner_cluster_latency_sums += sum;
             }
         }
-
         mean_inner_cluster_latencies.push(latency_sum / count as f64);
         inner_cluster_latency_mean_sums += latency_sum / count as f64;
         cluster_node_count.push(node_indices.len());
