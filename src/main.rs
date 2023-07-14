@@ -24,19 +24,20 @@ struct ServerData {
     longitude: f32,
 }
 
-fn histogram(path: &str, values: &[f64], title: &str) {
+fn histogram(path: &str, values: &[f64], min_val: f64, max_val: f64, title: &str) {
     let root = BitMapBackend::new(path, (1200, 800)).into_drawing_area();
     root.fill(&WHITE).unwrap();
     let data: Vec<u32> = values.iter().map(|v| v.round() as u32).collect();
-    let min_val = *data.iter().min().unwrap();
-    let max_val = *data.iter().max().unwrap();
 
     let mut chart = ChartBuilder::on(&root)
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
         .caption(title, ("sans-serif", 40.0))
-        .build_cartesian_2d((min_val..max_val).into_segmented(), 0u32..10u32)
+        .build_cartesian_2d(
+            (min_val as u32..max_val as u32).into_segmented(),
+            0u32..10u32,
+        )
         .unwrap();
 
     chart
@@ -323,14 +324,28 @@ fn main() {
     let (avg_cluster_latencies, cluster_counts, cluster_latency_sum, cluster_latency_mean_sum) =
         calculate_cluster_metrics(&assignment, &matrix);
 
+    let mut min_val = f64::MAX;
+    let mut max_val = f64::MIN;
+    avg_cluster_latencies_baseline.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    avg_cluster_latencies.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
     histogram(
         "random_assignment_latency_histogram.png",
         &avg_cluster_latencies_baseline,
+        min_val,
+        max_val,
         "Random Assignment Cluster Latency",
     );
     histogram(
         "kmedoids_latency_histogram.png",
         &avg_cluster_latencies,
+        min_val,
+        max_val,
         "K-Medoids Cluster Latency",
     );
 
