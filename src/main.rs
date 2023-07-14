@@ -3,16 +3,14 @@ use std::collections::BTreeMap;
 use base64::Engine;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
+use petal_clustering::{Fit, HDbscan};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use csv::ReaderBuilder;
 use std::error::Error;
 
-use plotters::{
-    prelude::*,
-    style::full_palette::{BROWN, GREY, INDIGO, LIME, ORANGE, PINK, PURPLE},
-};
+use plotters::prelude::*;
 
 const FONT: &str = "IBM Plex Mono, monospace";
 
@@ -63,8 +61,7 @@ fn histogram(values: &[f64], min_val: f64, max_val: f64, title: &str) -> String 
         .expect("Unable to write temp histogram to file");
 
     let file = std::fs::read("/tmp/histogram.png").expect("failed to read temp file");
-    let encoded = base64::engine::general_purpose::STANDARD.encode(file);
-    encoded
+    base64::engine::general_purpose::STANDARD.encode(file)
 }
 
 fn scatter_plot(
@@ -163,6 +160,26 @@ fn run_kmedoids(
         &mut rand::thread_rng(),
     );
     kmedoids::fasterpam(dis_matrix, &mut meds, 100)
+}
+
+fn run_hdbscan(
+    min_cluster_size: usize,
+    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
+) -> (Vec<usize>, usize, usize) {
+    let (clusters, excess) = HDbscan {
+        min_cluster_size,
+        ..HDbscan::default()
+    }
+    .fit(dis_matrix);
+
+    let num_clusters = clusters.len();
+    let mut assignments = vec![0; dis_matrix.nrows()];
+    for (cluster, nodes) in clusters {
+        for node in nodes {
+            assignments[node] = cluster;
+        }
+    }
+    (assignments, excess.len(), num_clusters)
 }
 
 fn get_random_assignment(num_clusters: usize, num_nodes: usize) -> Vec<usize> {
@@ -323,6 +340,10 @@ fn main() {
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 10;
     let num_clusters = num_servers / optimal_cluster_size;
+    let mut min_val = f64::MAX;
+    let mut max_val = f64::MIN;
+
+    /* BASELINE: RANDOM ASSIGNMENT */
 
     // establish baseline by random assignment
     let random_assignment = get_random_assignment(num_clusters, num_servers);
@@ -347,19 +368,7 @@ fn main() {
         ));
     }
 
-    let (_, assignment, num_iterations, _) = run_kmedoids(&dissim_matrix, num_clusters);
-    scatter_plot(&mut plot_buffer, &data_points, &assignment, "K-Medoids");
-
-    let (avg_cluster_latencies, cluster_counts, cluster_latency_sum, cluster_latency_mean_sum) =
-        calculate_cluster_metrics(&assignment, &matrix);
-
-    let mut min_val = f64::MAX;
-    let mut max_val = f64::MIN;
     avg_cluster_latencies_baseline.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
-    });
-    avg_cluster_latencies.iter().for_each(|v| {
         min_val = min_val.min(*v);
         max_val = max_val.max(*v);
     });
@@ -369,20 +378,8 @@ fn main() {
         max_val,
         "Random Assignment Cluster Latency",
     );
-    let kmedoids_latency_histogram = histogram(
-        &avg_cluster_latencies,
-        min_val,
-        max_val,
-        "K-Medoids Cluster Latency",
-    );
 
-    let mut min_val = f64::MAX;
-    let mut max_val = f64::MIN;
     cluster_counts_baseline.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
-    });
-    cluster_counts.iter().for_each(|v| {
         min_val = min_val.min(*v);
         max_val = max_val.max(*v);
     });
@@ -393,8 +390,13 @@ fn main() {
         "Random Assignment Cluster Sizes",
     );
 
-    let kmedoids_sizes_histogram =
-        histogram(&cluster_counts, min_val, max_val, "K-Medoids Cluster Sizes");
+    /* K-MEDOIDS */
+
+    let (_, assignment, num_iterations, _) = run_kmedoids(&dissim_matrix, num_clusters);
+    scatter_plot(&mut plot_buffer, &data_points, &assignment, "K-Medoids");
+
+    let (avg_cluster_latencies, cluster_counts, cluster_latency_sum, cluster_latency_mean_sum) =
+        calculate_cluster_metrics(&assignment, &matrix);
 
     let mut table_rows = vec![];
     for i in 0..avg_cluster_latencies.len() {
@@ -403,6 +405,68 @@ fn main() {
             cluster_counts[i], avg_cluster_latencies[i]
         ));
     }
+
+    avg_cluster_latencies.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    let kmedoids_latency_histogram = histogram(
+        &avg_cluster_latencies,
+        min_val,
+        max_val,
+        "K-Medoids Cluster Latency",
+    );
+
+    cluster_counts.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    let kmedoids_sizes_histogram =
+        histogram(&cluster_counts, min_val, max_val, "K-Medoids Cluster Sizes");
+
+    /* HDBSCAN */
+
+    let (hdbscan_assignment, hdbscan_loss, hdbscan_num_clusters) =
+        run_hdbscan(optimal_cluster_size, &dissim_matrix);
+    scatter_plot(
+        &mut plot_buffer,
+        &data_points,
+        &hdbscan_assignment,
+        "HDbscan",
+    );
+
+    let (
+        hdbscan_avg_cluster_latencies,
+        hdbscan_cluster_counts,
+        hdbscan_cluster_latency_sum,
+        hdbscan_cluster_latency_mean_sum,
+    ) = calculate_cluster_metrics(&hdbscan_assignment, &matrix);
+
+    let mut hdbscan_table_rows = vec![];
+    for i in 0..hdbscan_avg_cluster_latencies.len() {
+        hdbscan_table_rows.push(format!(
+            "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
+            hdbscan_cluster_counts[i], hdbscan_avg_cluster_latencies[i]
+        ));
+    }
+
+    hdbscan_avg_cluster_latencies.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    let hdbscan_latency_histogram = histogram(
+        &hdbscan_avg_cluster_latencies,
+        min_val,
+        max_val,
+        "HDbscan Cluster Latency",
+    );
+
+    hdbscan_cluster_counts.iter().for_each(|v| {
+        min_val = min_val.min(*v);
+        max_val = max_val.max(*v);
+    });
+    let hdbscan_sizes_histogram =
+        histogram(&cluster_counts, min_val, max_val, "HDbscan Cluster Sizes");
 
     // create html report
     let html = format!(
@@ -421,55 +485,82 @@ fn main() {
 </head>
 <body>
     <h1>Topology Simulation Report</h1>
+    <p>The clustering </p>
     <hr>
     {plot_buffer}
     <hr>
-    <h2>Random Assignment</h2>
-    <p>
-        Num. Clusters: {num_clusters}</br>
-        Latency Sum: {cluster_latency_sum_baseline}</br>
-        Latency Sum of All Cluster Means: {cluster_latency_mean_sum_baseline}</br>
-    </p>
-    <table>
-        <tr>
-            <th>Cluster</th>
-            <th>Count</th>
-            <th>Avg. Latency</th>
-        </tr>
-        {}
-    </table>
-    <h2>K-Medoids</h2>
-    <p>
-        Num. Clusters: {num_clusters}</br>
-        Num. Iterations: {num_iterations}</br>
-        Latency Sum: {cluster_latency_sum}</br>
-        Latency Sum of All Cluster Means: {cluster_latency_mean_sum}</br>
-    </p>
-    <table>
-        <tr>
-            <th>Cluster</th>
-            <th>Count</th>
-            <th>Avg. Latency</th>
-        </tr>
-        {}
-    </table>
+    <div style="display: flex;">
+        <div style="width:100%; margin:1%;">
+            <h2>Random Assignment</h2>
+            <p>
+                Num. Clusters: {num_clusters}</br>
+                Latency Sum: {cluster_latency_sum_baseline}</br>
+                Latency Sum of All Cluster Means: {cluster_latency_mean_sum_baseline}</br>
+            </p>
+            <table>
+                <tr>
+                    <th>Cluster</th>
+                    <th>Count</th>
+                    <th>Avg. Latency</th>
+                </tr>
+                {}
+            </table>
+        </div>
+        <div style="width:100%; margin:1%;">
+            <h2>K-Medoids</h2>
+            <p>
+                Num. Clusters: {num_clusters}</br>
+                Num. Iterations: {num_iterations}</br>
+                Latency Sum: {cluster_latency_sum:.0001}</br>
+                Latency Sum of All Cluster Means: {cluster_latency_mean_sum:.0001}</br>
+            </p>
+            <table>
+                <tr>
+                    <th>Cluster</th>
+                    <th>Count</th>
+                    <th>Avg. Latency</th>
+                </tr>
+                {}
+            </table>
+        </div>
+        <div style="width:100%; margin:1%;">
+            <h2>HDbscan</h2>
+            <p>
+                Num. Clusters: {hdbscan_num_clusters}</br>
+                Num. Node Loss: {hdbscan_loss}</br>
+                Latency Sum: {hdbscan_cluster_latency_sum:.0001}</br>
+                Latency Sum of All Cluster Means: {hdbscan_cluster_latency_mean_sum:.0001}</br>
+            </p>
+            <table>
+                <tr>
+                    <th>Cluster</th>
+                    <th>Count</th>
+                    <th>Avg. Latency</th>
+                </tr>
+                {}
+            </table>
+        </div>
+    </div>
 
     <h1>Cluster Latency Histograms</h1>
     <div style="display: flex;">
-        <img src="data:image/png;base64,{random_assignment_latency_histogram}" width="50%" />
-        <img src="data:image/png;base64,{kmedoids_latency_histogram}" width="50%" />
+        <img src="data:image/png;base64,{random_assignment_latency_histogram}" width="33%" />
+        <img src="data:image/png;base64,{kmedoids_latency_histogram}" width="33%" />
+        <img src="data:image/png;base64,{hdbscan_latency_histogram}" width="33%" />
     </div>
 
     <h1>Cluster Sizes Histograms</h1>
     <div style="display: flex;">
-        <img src="data:image/png;base64,{random_assignment_sizes_histogram}" width=800 />
-        <img src="data:image/png;base64,{kmedoids_sizes_histogram}" width=800 />
+        <img src="data:image/png;base64,{random_assignment_sizes_histogram}" width="33%" />
+        <img src="data:image/png;base64,{kmedoids_sizes_histogram}" width="33%" />
+        <img src="data:image/png;base64,{hdbscan_sizes_histogram}" width="33%" />
     </div>
 <body>
 </html>
           "#,
         table_rows_baseline.join("\n"),
         table_rows.join("\n"),
+        hdbscan_table_rows.join("\n"),
     );
 
     std::fs::write("report.html", html).unwrap();
