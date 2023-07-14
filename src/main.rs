@@ -9,7 +9,7 @@ use std::error::Error;
 
 use plotters::{
     prelude::*,
-    style::full_palette::{INDIGO, ORANGE, PURPLE},
+    style::full_palette::{BROWN, GREY, INDIGO, LIME, ORANGE, PINK, PURPLE},
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -27,7 +27,7 @@ fn scatter_plot(
     output_path: &str,
     title: &str,
 ) {
-    let mut series = HashMap::new();
+    let mut series = BTreeMap::new();
     let mut x_min = f64::MAX;
     let mut x_max = f64::MIN;
     let mut y_min = f64::MAX;
@@ -64,20 +64,23 @@ fn scatter_plot(
 
     ctx.configure_mesh().draw().unwrap();
 
-    let color_map = DerivedColorMap::new(&[RED, ORANGE, YELLOW, GREEN, BLUE, INDIGO, PURPLE]);
+    let color_map = DerivedColorMap::new(&[
+        BLUE, CYAN, GREEN, LIME, YELLOW, ORANGE, BROWN, RED, PINK, MAGENTA, PURPLE, INDIGO, GREY,
+    ]);
 
     series.iter().for_each(|(&cluster_index, points)| {
         let color = color_map.get_color(*cluster_index as f64 / series.len() as f64);
 
         ctx.draw_series(points.iter().map(|point| Circle::new(*point, 5, color)))
             .unwrap()
-            .label(format!("Cluster {cluster_index}"))
+            .label(format!("Cluster {cluster_index} ({})", points.len()))
             .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color));
     });
 
     ctx.configure_series_labels()
         .border_style(BLACK)
         .background_style(WHITE.mix(0.8))
+        .position(SeriesLabelPosition::LowerLeft)
         .draw()
         .unwrap();
 }
@@ -147,25 +150,28 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
 
 fn calculate_cluster_metrics(
     assignment: &[usize],
-    latency_matrix: &Vec<Vec<f32>>,
+    latency_matrix: &[Vec<f32>],
 ) -> (Vec<f64>, Vec<usize>, f64) {
-    let mut clusters = HashMap::new();
+    let mut clusters = BTreeMap::new();
     for (i, cluster_index) in assignment.iter().enumerate() {
         clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
     }
     let mut mean_inner_cluster_latencies = Vec::new();
     let mut cluster_node_count = Vec::new();
     let mut inner_cluster_latency_sums = 0.0;
-    for (cluster_index, node_indices) in clusters.iter() {
+    for node_indices in clusters.values() {
         let mut latency_sum = 0.0;
         let mut count = 0;
-        for i in 0..node_indices.len() {
-            for j in i + 1..node_indices.len() {
-                latency_sum += latency_matrix[i][j] as f64;
+
+        for (i, &src) in node_indices.iter().enumerate() {
+            for &dst in node_indices[i + 1..].iter() {
+                let sum = latency_matrix[src][dst] as f64;
                 count += 1;
-                inner_cluster_latency_sums += latency_matrix[i][j] as f64;
+                latency_sum += sum;
+                inner_cluster_latency_sums += sum;
             }
         }
+
         mean_inner_cluster_latencies.push(latency_sum / count as f64);
         cluster_node_count.push(node_indices.len());
     }
