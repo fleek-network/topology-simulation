@@ -1,198 +1,214 @@
-id,name,title,location,state,country,state_abbv,continent,latitude,longitude
-0,JoaoPessoa,Joao Pessoa,Patos,Paraiba,Brazil,PB,2,-7.0833,-34.8333
-1,Toronto,Toronto,Toronto,Ontario,Canada,ON,1,43.6481,-79.4042
-2,Prague,Prague,Prague,Prague,Czech Republic,,3,50.0833,14.4167
-3,Paris,Paris,Paris,Ile-de-France,France,IDF,3,48.8742,2.347
-4,Tokyo,Tokyo,Tokyo,Tokyo,Japan,,3,35.6833,139.7667
-5,Amsterdam,Amsterdam,Haarlemmermeer,North Holland,Netherlands,NH,3,52.3,4.7
-6,Auckland,Auckland,Auckland,Auckland,New Zealand,AUK,4,-36.8404,174.7399
-7,Stockholm,Stockholm,Stockholm,Stockholm,Sweden,,3,59.32,18.09
-8,London,London,London,England,United Kingdom,ENG,3,51.5171,-0.1062
-9,Dallas,Dallas,Dallas,Texas,United States,TX,1,32.7828,-96.8039
-10,NewYork,New York,Garden City,New York,United States,NY,1,40.7269,-73.6497
-11,Boston,Boston,Somerville,Massachusetts,United States,MA,1,42.3583,-71.0603
-12,Miami,Miami,Miami,Florida,United States,FL,1,25.765,-80.2
-13,Washington,Washington,Herndon,Virginia,United States,VA,1,38.9694,-77.3864
-14,Barcelona,Barcelona,Barcelona,Catalonia,Spain,CT,3,41.3857,2.1699
-15,Atlanta,Atlanta,Atlanta,Georgia,United States,GA,1,33.7489,-84.3881
-16,Dublin,Dublin,Dublin,Leinster,Ireland,L,3,53.3478,-6.2597
-17,Vienna,Vienna,Vienna,Vienna,Austria,,3,48.2088,16.3726
-18,Brisbane,Brisbane,Brisbane,Queensland,Australia,QLD,4,-27.4667,153.0333
-19,Chicago,Chicago,Chicago,Illinois,United States,IL,1,41.85,-87.65
-20,Seattle,Seattle,Seattle,Washington,United States,WA,1,47.6097,-122.3331
-21,Tallinn,Tallinn,Tallinn,Harju County,Estonia,,3,59.4339,24.7549
-22,Copenhagen,Copenhagen,Copenhagen,Capital Region,Denmark,,3,55.675,12.5687
-23,Milan,Milan,Milan,Lombardy,Italy,,3,45.464,9.1916
-24,Ljubljana,Ljubljana,Ljubljana,,Slovenia,,3,46.0556,14.5083
-25,Frankfurt,Frankfurt,Frankfurt,Hesse,Germany,HE,3,50.1167,8.6833
-26,Fremont,Fremont,Fremont,California,United States,CA,1,37.5483,-121.9875
-27,Warsaw,Warsaw,Warsaw,Mazovia,Poland,MZ,3,52.23,21.0108
-28,Kiev,Kiev,Kharkiv,Kharkiv Oblast,Ukraine,,3,50.45,30.5233
-29,Malaysia,Malaysia,Kuala Lumpur,Kuala Lumpur,Malaysia,,3,3.1333,101.6833
-30,LosAngeles,Los Angeles,Los Angeles,California,United States,CA,1,34.0522,-118.2428
-31,Houston,Houston,Houston,Texas,United States,TX,1,29.7631,-95.3631
-32,Baltimore,Baltimore,Baltimore,Maryland,United States,MD,1,39.2833,-76.6167
-33,CapeTown,Cape Town,Cape Town,Western Cape,South Africa,WC,5,-33.9767,18.4244
-34,Bruges,Bruges,Oostkamp,West Flanders,Belgium,VWV,3,51.2167,3.233
-35,Lisbon,Lisbon,Lisbon,Lisbon,Portugal,,3,38.7,-9.1833
-36,Helsinki,Helsinki,Espoo,Uusimaa,Finland,,3,60.21,24.66
-37,NewDelhi,New Delhi,New Delhi,Delhi,India,DL,3,28.585,77.2
-38,Budapest,Budapest,Budapest,Budapest,Hungary,BU,3,47.5,19.05
-39,Bergen,Bergen,Bergen,Hordaland,Norway,,3,60.38,5.34
-40,Medellin,Medellin,Medellin,Antioquia,Colombia,ANT,2,6.2457,-75.5822
-41,BuenosAires,Buenos Aires,Buenos Aires,,Argentina,,2,-34.6036,-58.3817
-42,SanAntonio,San Antonio,San Antonio,Texas,United States,TX,1,29.4239,-98.4933
-43,Montreal,Montreal,Laval,Quebec,Canada,QC,1,45.5081,-73.555
-44,Vancouver,Vancouver,Vancouver,British Columbia,Canada,BC,1,49.2505,-123.1119
-45,Roubaix,Roubaix,Roubaix,Hauts-de-France,France,HDF,3,50.69,3.1817
-46,KansasCity,Kansas City,Kansas City,Missouri,United States,MO,1,39.0997,-94.5783
-47,Hyderabad,Hyderabad,Hyderabad,Telangana,India,TG,3,17.3667,78.4667
-48,Jakarta,Jakarta,Jakarta,Jakarta,Indonesia,JK,3,-6.1333,106.75
-49,Valencia,Valencia,Valencia,Valencian Community,Spain,VC,3,39.4767,-0.3744
-50,Christchurch,Christchurch,Christchurch,Canterbury,New Zealand,CAN,4,-43.5,172.6
-51,Graz,Graz,Graz,Styria,Austria,,3,47.0703,15.4389
-52,Luxembourg,Luxembourg,Steinsel,Luxembourg,Luxembourg,LU,3,49.6833,6.1167
-53,Cairo,Cairo,10th of Ramadan City,Sharqia,Egypt,SHR,5,30.0566,31.2262
-54,Fez,Fez,Fez,Fes-Meknes,Morocco,,5,34.0442,-5.0019
-55,Bangkok,Bangkok,Bangkok,Bangkok,Thailand,,3,13.75,100.4833
-56,Hanoi,Hanoi,Hanoi,Hanoi,Vietnam,,3,21.0409,105.7981
-57,Istanbul,Istanbul,Istanbul,Istanbul,Turkey,,3,41.0128,28.9744
-58,Philadelphia,Philadelphia,Philadelphia,Pennsylvania,United States,PA,1,39.9522,-75.1642
-59,HongKong,Hong Kong,Hong Kong,,Hong Kong,,3,22.3,114.1667
-60,SanDiego,San Diego,San Diego,California,United States,CA,1,32.7153,-117.1564
-61,Heredia,Heredia,San Jose,San Jose,Costa Rica,SJ,1,10.0,-84.1167
-62,Reykjavik,Reykjavik,Hafnarfjordur,Capital Region,Iceland,,3,64.1333,-21.9333
-63,Manchester,Manchester,Manchester,England,United Kingdom,ENG,3,53.48,-2.24
-64,LasVegas,Las Vegas,Las Vegas,Nevada,United States,NV,1,36.08,-115.1522
-65,Columbus,Columbus,Columbus,Ohio,United States,OH,1,39.9611,-82.9989
-66,Detroit,Detroit,Detroit,Michigan,United States,MI,1,42.3314,-83.0458
-67,Portland,Portland,Portland,Oregon,United States,OR,1,45.5236,-122.675
-68,Halifax,Halifax,Halifax,Nova Scotia,Canada,NS,1,44.65,-63.6
-69,Chennai,Chennai,Chennai,Tamil Nadu,India,TN,3,13.081,80.274
-70,SaltLakeCity,Salt Lake City,Salt Lake City,Utah,United States,UT,1,40.75,-111.8833
-71,TelAviv,Tel Aviv,Tel Aviv,Tel Aviv,Israel,TA,3,32.0833,34.8833
-72,Newcastle,Newcastle,Newcastle,England,United Kingdom,ENG,3,54.9833,-1.5833
-73,Orlando,Orlando,Orlando,Florida,United States,FL,1,28.5381,-81.3794
-74,StLouis,St Louis,St Louis,Missouri,United States,MO,1,38.63,-90.2
-75,Coventry,Coventry,Coventry,England,United Kingdom,ENG,3,52.4081,-1.5106
-76,Minneapolis,Minneapolis,St Paul,Minnesota,United States,MN,1,45.5579,-94.1632
-77,Sacramento,Sacramento,Sacramento,California,United States,CA,1,38.5817,-121.4933
-78,Madrid,Madrid,Madrid,Community of Madrid,Spain,MD,3,40.4,-3.6833
-79,Taipei,Taipei,Taipei,Taipei,Taiwan,TPE,3,25.0333,121.5333
-80,Buffalo,Buffalo,Buffalo,New York,United States,NY,1,42.8864,-78.8786
-81,Tampa,Tampa,Tampa,Florida,United States,FL,1,27.9472,-82.4586
-82,Guatemala,Guatemala,Guatemala City,Guatemala,Guatemala,GU,1,9.0,-79.5
-83,SouthBend,South Bend,South Bend,Indiana,United States,IN,1,41.6833,-86.25
-84,Adelaide,Adelaide,Adelaide,South Australia,Australia,SA,4,-34.9333,138.5833
-85,Monticello,Monticello,Monticello,Iowa,United States,IA,1,42.2383,-91.1869
-86,Lima,Lima,Lima,Lima Province,Peru,LMA,2,-12.0433,-77.0283
-87,Asheville,Asheville,Asheville,North Carolina,United States,NC,1,35.6008,-82.5542
-88,Pune,Pune,Pune,Maharashtra,India,MH,3,18.5236,73.8478
-89,Manila,Manila,Manila,National Capital Region,Philippines,,3,14.5833,120.9667
-90,Seoul,Seoul,Seoul,Seoul,South Korea,,3,37.5665,126.978
-91,Manhattan,Manhattan,New York City,New York,United States,NY,1,40.7903,-73.9597
-92,DaresSalaam,Dar es Salaam,Dar es Salaam,Dar es Salaam,Tanzania,,5,-6.8,39.2833
-93,Riyadh,Riyadh,Riyadh,Riyadh,Saudi Arabia,,3,24.6333,46.7167
-94,Thessaloniki,Thessaloniki,Thessaloniki,Central Macedonia,Greece,,3,40.65,22.9
-95,Kampala,Kampala,Kampala,Kampala,Uganda,,5,0.3136,32.5811
-96,Osaka,Osaka,Osaka,Osaka,Japan,,3,34.6939,135.5022
-97,OklahomaCity,Oklahoma City,Oklahoma City,Oklahoma,United States,OK,1,35.4822,-97.535
-98,ColoradoSprings,Colorado Springs,Colorado Springs,Colorado,United States,CO,1,38.8633,-104.7919
-99,Knoxville,Knoxville,Knoxville,Tennessee,United States,TN,1,35.9728,-83.9422
-100,Oslo,Oslo,Oslo,Oslo,Norway,,3,59.95,10.75
-101,Piscataway,Piscataway,Piscataway,New Jersey,United States,NJ,1,40.5456,-74.4608
-102,Nairobi,Nairobi,Nairobi,Nairobi,Kenya,,5,-1.2833,36.8167
-103,Dubai,Dubai,Dubai,Dubai,United Arab Emirates,DU,3,24.95,55.3333
-104,Winnipeg,Winnipeg,Winnipeg,Manitoba,Canada,MB,1,49.8994,-97.1392
-105,Cincinnati,Cincinnati,Cincinnati,Ohio,United States,OH,1,39.1,-84.5167
-106,Cleveland,Cleveland,Mentor,Ohio,United States,OH,1,41.6911,-81.3419
-107,Wellington,Wellington,Wellington,Wellington,New Zealand,WGN,4,-41.2865,174.7762
-108,NewOrleans,New Orleans,New Orleans,Louisiana,United States,LA,1,29.9667,-90.05
-109,Salem,Salem,Salem,New Hampshire,United States,NH,1,42.7883,-71.2008
-110,Albuquerque,Albuquerque,Albuquerque,New Mexico,United States,NM,1,35.1107,-106.61
-111,Austin,Austin,Austin,Texas,United States,TX,1,30.25,-97.75
-112,DesMoines,Des Moines,Des Moines,Iowa,United States,IA,1,41.5908,-93.6208
-113,Albany,Albany,Latham,New York,United States,NY,1,42.7469,-73.7589
-114,Bratislava,Bratislava,Bratislava,Bratislava,Slovakia,BL,3,48.1439,17.1097
-115,Dhaka,Dhaka,Dhaka,Dhaka Division,Bangladesh,,3,23.7,90.375
-116,Zagreb,Zagreb,Zagreb,,Croatia,,3,45.8167,15.9833
-117,Honolulu,Honolulu,Honolulu,Hawaii,United States,HI,1,21.3,-157.8167
-118,Dusseldorf,Dusseldorf,Dusseldorf,North Rhine-Westphalia,Germany,NW,3,51.2333,6.7833
-119,Sofia,Sofia,Sofia,Sofia City,Bulgaria,,3,42.7,23.3333
-120,Maidstone,Maidstone,Maidstone,England,United Kingdom,ENG,3,51.272,0.529
-121,Nuremberg,Nuremberg,Nuremberg,Bavaria,Germany,BY,3,49.45,11.0833
-122,Sapporo,Sapporo,Sapporo,Hokkaido,Japan,,3,43.0667,141.35
-123,Nis,Nis,Nis,Nisava District,Serbia,,3,43.3,21.9
-124,Geneva,Geneva,Vernier,Geneva,Switzerland,GE,3,46.2,6.1
-125,Raleigh,Raleigh,Cary,North Carolina,United States,NC,1,35.7789,-78.8003
-126,Roseburg,Roseburg,Roseburg,Oregon,United States,OR,1,43.2181,-123.3561
-127,Gothenburg,Gothenburg,Gothenburg,Vastra Gotaland,Sweden,,3,57.7,11.9667
-128,Dagupan,Dagupan,Dagupan,Ilocos Region,Philippines,,3,16.0333,120.3333
-129,Saskatoon,Saskatoon,Saskatoon,Saskatchewan,Canada,SK,1,52.1333,-106.6833
-130,Perth,Perth,Perth,Western Australia,Australia,WA,4,-31.9522,115.8589
-131,Secaucus,Secaucus,Secaucus,New Jersey,United States,NJ,1,40.782,-74.0676
-132,Karaganda,Karaganda,Karaganda,Karaganda,Kazakhstan,KAR,3,49.8333,73.1667
-133,Johannesburg,Johannesburg,Johannesburg,Gauteng,South Africa,GT,5,-26.2044,28.0456
-134,Guadalajara,Guadalajara,Guadalajara,Jalisco,Mexico,JAL,1,20.667,-103.35
-135,Brunswick,Brunswick,Brunswick,Maine,United States,ME,1,43.9108,-69.9631
-136,Pittsburgh,Pittsburgh,Pittsburgh,Pennsylvania,United States,PA,1,40.4397,-79.9764
-137,Strasbourg,Strasbourg,Strasbourg,Grand Est,France,GES,3,48.5734,7.7521
-138,Lahore,Lahore,Lahore,Punjab,Pakistan,PB,3,31.5497,74.3436
-139,Edinburgh,Edinburgh,Edinburgh,Scotland,United Kingdom,SCT,3,55.9531,-3.1889
-140,Lausanne,Lausanne,Lausanne,Vaud,Switzerland,VD,3,46.5198,6.6335
-141,Rome,Rome,Rome,Lazio,Italy,,3,41.9,12.5
-142,Cardiff,Cardiff,Cardiff,Wales,United Kingdom,WLS,3,51.4833,-3.1833
-143,Limassol,Limassol,Limassol,Limassol,Cyprus,,3,34.6667,33.0333
-144,Tirana,Tirana,Tirana,Tirana,Albania,TR,3,41.326,19.816
-145,Dronten,Dronten,Dronten,Flevoland,Netherlands,FL,3,52.5167,5.7167
-146,Groningen,Groningen,Groningen,Groningen,Netherlands,GR,3,53.2167,6.5667
-147,Rotterdam,Rotterdam,Rotterdam,South Holland,Netherlands,ZH,3,51.9167,4.5
-148,Brno,Brno,Brno,South Moravian Region,Czech Republic,,3,49.2,16.6167
-149,Ankara,Ankara,Ankara,Ankara,Turkey,,3,39.9333,32.8667
-150,Venice,Venice,Noventa di Piave,Veneto,Italy,,3,45.6667,12.5333
-151,Hamburg,Hamburg,Hamburg,Hamburg,Germany,HH,3,53.5653,10.0014
-152,Belfast,Belfast,Belfast,Northern Ireland,United Kingdom,NIR,3,54.597,-5.93
-153,Bursa,Bursa,Bursa,Bursa,Turkey,,3,40.1833,29.05
-154,Gdansk,Gdansk,Gdansk,Pomerania,Poland,PM,3,54.35,18.6333
-155,Pristina,Pristina,Pristina,District of Pristina,Kosovo,,3,42.6667,21.1667
-156,PhnomPenh,Phnom Penh,Phnom Penh,Phnom Penh,Cambodia,,3,11.55,104.9167
-157,Munich,Munich,Munich,Bavaria,Germany,BY,3,48.1333,11.5667
-158,Ktis,Ktis,Ktis,South Bohemian Region,Czech Republic,,3,48.9181,14.1239
-159,Bogota,Bogota,Bogota,Cundinamarca,Colombia,CUN,2,4.5981,-74.0758
-160,Athens,Athens,Athens,Attica,Greece,,3,37.9667,23.7167
-161,Alblasserdam,Alblasserdam,Alblasserdam,South Holland,Netherlands,ZH,3,51.8667,4.65
-162,TheHague,The Hague,The Hague,South Holland,Netherlands,ZH,3,52.0833,4.3167
-163,Westpoort,Westpoort,Westpoort,North Holland,Netherlands,NH,3,52.4058,4.8211
-164,LaCeiba,La Ceiba,La Ceiba,Atlantida,Honduras,AT,1,15.7703,-86.7919
-165,Bangalore,Bangalore,Bangalore,Karnataka,India,KA,3,12.9716,77.5946
-166,Liege,Liege,Liege,Liege,Belgium,WLG,3,50.6326,5.5797
-167,Redding,Redding,Redding,California,United States,CA,1,40.5865,-122.3917
-168,Izmir,Izmir,Izmir,Izmir,Turkey,,3,38.4237,27.1428
-169,Bristol,Bristol,Bristol,England,United Kingdom,ENG,3,51.4545,-2.5879
-170,Eindhoven,Eindhoven,Eindhoven,North Brabant,Netherlands,NB,3,51.4416,5.4697
-171,Indianapolis,Indianapolis,Indianapolis,Indiana,United States,IN,1,39.7684,-86.1581
-172,Memphis,Memphis,Memphis,Tennessee,United States,TN,1,35.1495,-90.049
-173,HoChiMinhCity,Ho Chi Minh City,Ho Chi Minh City,Ho Chi Minh City,Vietnam,,3,10.8231,106.6297
-174,Cromwell,Cromwell,Cromwell,Connecticut,United States,CT,1,41.5951,-72.6454
-175,Bern,Bern,Bern,Bern,Switzerland,BE,3,46.948,7.4474
-176,Syracuse,Syracuse,Syracuse,New York,United States,NY,1,43.0481,-76.1474
-177,Basel,Basel,Basel,Basel-Stadt,Switzerland,BS,3,47.5596,7.5886
-178,Brasilia,Brasilia,Brasilia,Federal District,Brazil,DF,2,-15.7942,-47.8822
-179,Lyon,Lyon,Lyon,Auvergne-Rhone-Alpes,France,ARA,3,45.7581,4.7651
-180,Algiers,Algiers,Algiers,Algiers,Algeria,,5,36.7538,3.0588
-181,Caracas,Caracas,Caracas,Capital District,Venezuela,,2,10.4806,-66.9036
-182,Lagos,Lagos,Lagos,Lagos,Nigeria,LA,5,6.5244,3.3792
-183,Tbilisi,Tbilisi,Tbilisi,Tbilisi,Georgia,TB,3,41.7141,44.8271
-184,Valletta,Valletta,Valletta,South Eastern Region,Malta,,3,35.8989,14.5146
-185,Antwerp,Antwerp,Antwerp,Antwerp,Belgium,VAN,3,51.2194,4.4025
-186,Tunis,Tunis,Tunis,Tunis,Tunisia,,5,33.8869,9.5375
-187,BerkeleySprings,Berkeley Springs,Berkeley Springs,West Virginia,United States,WV,1,39.627,-78.2272
-188,Beirut,Beirut,Beirut,Beirut,Lebanon,BA,3,33.8887,35.4698
-189,Ottawa,Ottawa,Ottawa,Ontario,Canada,ON,1,45.4215,-75.6972
-190,Lincoln,Lincoln,Lincoln,Nebraska,United States,NE,1,40.8258,-96.6852
-191,Carlow,Carlow,Carlow,Leinster,Ireland,L,3,52.8365,-6.9341
-192,Paramaribo,Paramaribo,Paramaribo,Paramaribo,Suriname,PM,2,5.852,-55.2038
-193,Cheltenham,Cheltenham,Cheltenham,England,United Kingdom,ENG,3,51.8994,-2.0783
-194,Falkenstein,Falkenstein,Falkenstein,Saxony,Germany,SN,3,50.475,12.365
-195,Accra,Accra,Accra,Greater Accra,Ghana,AA,5,5.6037,-0.187
-196,Douglas,Douglas,Douglas,,Isle of Man,,3,54.1523,-4.4861
+id,title,country,latitude,longitude
+0,Joao Pessoa,Brazil,-7.0833,-34.8333
+1,Toronto,Canada,43.6481,-79.4042
+2,Prague,Czech Republic,50.0833,14.4167
+3,Paris,France,48.8742,2.347
+4,Tokyo,Japan,35.6833,139.7667
+5,Amsterdam,Netherlands,52.3,4.7
+6,Auckland,New Zealand,-36.8404,174.7399
+7,Moscow,Russia,55.7517,37.6178
+8,Stockholm,Sweden,59.32,18.09
+9,London,United Kingdom,51.5171,-0.1062
+10,Dallas,United States,32.7828,-96.8039
+11,New York,United States,40.7269,-73.6497
+12,Boston,United States,42.3583,-71.0603
+13,Miami,United States,25.765,-80.2
+14,Washington,United States,38.9694,-77.3864
+15,Barcelona,Spain,41.3857,2.1699
+16,Atlanta,United States,33.7489,-84.3881
+17,Dublin,Ireland,53.3478,-6.2597
+18,Vienna,Austria,48.2088,16.3726
+19,Brisbane,Australia,-27.4667,153.0333
+20,Chicago,United States,41.85,-87.65
+21,Seattle,United States,47.6097,-122.3331
+22,Tallinn,Estonia,59.4339,24.7549
+23,Copenhagen,Denmark,55.675,12.5687
+24,Milan,Italy,45.464,9.1916
+25,Ljubljana,Slovenia,46.0556,14.5083
+26,Frankfurt,Germany,50.1167,8.6833
+27,Fremont,United States,37.5483,-121.9875
+28,Warsaw,Poland,52.23,21.0108
+29,Kiev,Ukraine,50.45,30.5233
+30,Zurich,Switzerland,47.369,8.538
+31,Malaysia,Malaysia,3.1333,101.6833
+32,Los Angeles,United States,34.0522,-118.2428
+33,Houston,United States,29.7631,-95.3631
+34,Baltimore,United States,39.2833,-76.6167
+35,Cape Town,South Africa,-33.9767,18.4244
+36,Bruges,Belgium,51.2167,3.233
+37,Lisbon,Portugal,38.7,-9.1833
+38,Helsinki,Finland,60.21,24.66
+39,New Delhi,India,28.585,77.2
+40,Budapest,Hungary,47.5,19.05
+41,Bergen,Norway,60.38,5.34
+42,Medellin,Colombia,6.2457,-75.5822
+43,Buenos Aires,Argentina,-34.6036,-58.3817
+44,San Antonio,United States,29.4239,-98.4933
+45,Montreal,Canada,45.5081,-73.555
+46,Vancouver,Canada,49.2505,-123.1119
+47,Roubaix,France,50.69,3.1817
+48,Kansas City,United States,39.0997,-94.5783
+49,Hyderabad,India,17.3667,78.4667
+50,Jakarta,Indonesia,-6.1333,106.75
+51,Valencia,Spain,39.4767,-0.3744
+52,Christchurch,New Zealand,-43.5,172.6
+53,Graz,Austria,47.0703,15.4389
+54,Luxembourg,Luxembourg,49.6833,6.1167
+55,Cairo,Egypt,30.0566,31.2262
+56,Fez,Morocco,34.0442,-5.0019
+57,Bangkok,Thailand,13.75,100.4833
+58,Hanoi,Vietnam,21.0409,105.7981
+59,Istanbul,Turkey,41.0128,28.9744
+60,Philadelphia,United States,39.9522,-75.1642
+61,Santiago,Chile,-33.0333,-71.5417
+62,Hong Kong,Hong Kong,22.3,114.1667
+63,San Diego,United States,32.7153,-117.1564
+64,Heredia,Costa Rica,10.0,-84.1167
+65,Reykjavik,Iceland,64.1333,-21.9333
+66,Manchester,United Kingdom,53.48,-2.24
+67,Las Vegas,United States,36.08,-115.1522
+68,Columbus,United States,39.9611,-82.9989
+69,Detroit,United States,42.3314,-83.0458
+70,Portland,United States,45.5236,-122.675
+71,Halifax,Canada,44.65,-63.6
+72,Hangzhou,China,30.25,120.1667
+73,Chennai,India,13.081,80.274
+74,Salt Lake City,United States,40.75,-111.8833
+75,Tel Aviv,Israel,32.0833,34.8833
+76,Newcastle,United Kingdom,54.9833,-1.5833
+77,Orlando,United States,28.5381,-81.3794
+78,St Louis,United States,38.63,-90.2
+79,Coventry,United Kingdom,52.4081,-1.5106
+80,Minneapolis,United States,45.5579,-94.1632
+81,Sacramento,United States,38.5817,-121.4933
+82,Madrid,Spain,40.4,-3.6833
+83,Taipei,Taiwan,25.0333,121.5333
+84,Buffalo,United States,42.8864,-78.8786
+85,Tampa,United States,27.9472,-82.4586
+86,Panama,Panama,14.6317,-90.5236
+87,Guatemala,Guatemala,9.0,-79.5
+88,San Francisco,United States,37.775,-122.4183
+89,South Bend,United States,41.6833,-86.25
+90,Adelaide,Australia,-34.9333,138.5833
+91,Monticello,United States,42.2383,-91.1869
+92,Lima,Peru,-12.0433,-77.0283
+93,Asheville,United States,35.6008,-82.5542
+94,Pune,India,18.5236,73.8478
+95,Manila,Philippines,14.5833,120.9667
+96,Seoul,South Korea,37.5665,126.978
+97,Manhattan,United States,40.7903,-73.9597
+98,Dar es Salaam,Tanzania,-6.8,39.2833
+99,Riyadh,Saudi Arabia,24.6333,46.7167
+100,Thessaloniki,Greece,40.65,22.9
+101,Kampala,Uganda,0.3136,32.5811
+102,Osaka,Japan,34.6939,135.5022
+103,Oklahoma City,United States,35.4822,-97.535
+104,Colorado Springs,United States,38.8633,-104.7919
+105,Knoxville,United States,35.9728,-83.9422
+106,Sao Paulo,Brazil,-23.55,-46.6333
+107,Riga,Latvia,56.9489,24.1064
+108,Oslo,Norway,59.95,10.75
+109,Piscataway,United States,40.5456,-74.4608
+110,Nairobi,Kenya,-1.2833,36.8167
+111,Dubai,United Arab Emirates,24.95,55.3333
+112,Winnipeg,Canada,49.8994,-97.1392
+113,Cincinnati,United States,39.1,-84.5167
+114,Cleveland,United States,41.6911,-81.3419
+115,Wellington,New Zealand,-41.2865,174.7762
+116,New Orleans,United States,29.9667,-90.05
+117,Salem,United States,42.7883,-71.2008
+118,Albuquerque,United States,35.1107,-106.61
+119,Austin,United States,30.25,-97.75
+120,Des Moines,United States,41.5908,-93.6208
+121,Albany,United States,42.7469,-73.7589
+122,Bratislava,Slovakia,48.1439,17.1097
+123,Dhaka,Bangladesh,23.7,90.375
+124,St Petersburg,Russia,59.95,30.3
+125,Zagreb,Croatia,45.8167,15.9833
+126,Honolulu,United States,21.3,-157.8167
+127,Dusseldorf,Germany,51.2333,6.7833
+128,Sofia,Bulgaria,42.7,23.3333
+129,Maidstone,United Kingdom,51.272,0.529
+130,Nuremberg,Germany,49.45,11.0833
+131,Sapporo,Japan,43.0667,141.35
+132,Nis,Serbia,43.3,21.9
+133,Geneva,Switzerland,46.2,6.1
+134,Raleigh,United States,35.7789,-78.8003
+135,Roseburg,United States,43.2181,-123.3561
+136,Gothenburg,Sweden,57.7,11.9667
+137,Dagupan,Philippines,16.0333,120.3333
+138,Saskatoon,Canada,52.1333,-106.6833
+139,Perth,Australia,-31.9522,115.8589
+140,Secaucus,United States,40.782,-74.0676
+141,Karaganda,Kazakhstan,49.8333,73.1667
+142,Johannesburg,South Africa,-26.2044,28.0456
+143,Novosibirsk,Russia,55.0167,82.9333
+144,Guadalajara,Mexico,20.667,-103.35
+145,Shanghai,China,31.2,121.5
+146,Brunswick,United States,43.9108,-69.9631
+147,Pittsburgh,United States,40.4397,-79.9764
+148,Strasbourg,France,48.5734,7.7521
+149,Lahore,Pakistan,31.5497,74.3436
+150,Edinburgh,United Kingdom,55.9531,-3.1889
+151,Lausanne,Switzerland,46.5198,6.6335
+152,Rome,Italy,41.9,12.5
+153,Cardiff,United Kingdom,51.4833,-3.1833
+154,Limassol,Cyprus,34.6667,33.0333
+155,Tirana,Albania,41.326,19.816
+156,Kazan,Russia,55.7903,49.1347
+157,Palermo,Italy,38.1167,13.3667
+158,Dronten,Netherlands,52.5167,5.7167
+159,Groningen,Netherlands,53.2167,6.5667
+160,Rotterdam,Netherlands,51.9167,4.5
+161,Brno,Czech Republic,49.2,16.6167
+162,Ankara,Turkey,39.9333,32.8667
+163,Venice,Italy,45.6667,12.5333
+164,Hamburg,Germany,53.5653,10.0014
+165,Belfast,United Kingdom,54.597,-5.93
+166,Bursa,Turkey,40.1833,29.05
+167,Gdansk,Poland,54.35,18.6333
+168,Pristina,Kosovo,42.6667,21.1667
+169,Phnom Penh,Cambodia,11.55,104.9167
+170,Munich,Germany,48.1333,11.5667
+171,Ktis,Czech Republic,48.9181,14.1239
+172,Bogota,Colombia,4.5981,-74.0758
+173,Athens,Greece,37.9667,23.7167
+174,Alblasserdam,Netherlands,51.8667,4.65
+175,The Hague,Netherlands,52.0833,4.3167
+176,Westpoort,Netherlands,52.4058,4.8211
+177,La Ceiba,Honduras,15.7703,-86.7919
+178,Shenzhen,China,22.5431,114.0579
+179,Bangalore,India,12.9716,77.5946
+180,Liege,Belgium,50.6326,5.5797
+181,Vladivostok,Russia,43.1737,132.0065
+182,Redding,United States,40.5865,-122.3917
+183,Izmir,Turkey,38.4237,27.1428
+184,Bristol,United Kingdom,51.4545,-2.5879
+185,Eindhoven,Netherlands,51.4416,5.4697
+186,Indianapolis,United States,39.7684,-86.1581
+187,Memphis,United States,35.1495,-90.049
+188,Ho Chi Minh City,Vietnam,10.8231,106.6297
+189,Cromwell,United States,41.5951,-72.6454
+190,Bern,Switzerland,46.948,7.4474
+191,Syracuse,United States,43.0481,-76.1474
+192,Basel,Switzerland,47.5596,7.5886
+193,Brasilia,Brazil,-15.7942,-47.8822
+194,Lyon,France,45.7581,4.7651
+195,Algiers,Algeria,36.7538,3.0588
+196,Caracas,Venezuela,10.4806,-66.9036
+197,Lagos,Nigeria,6.5244,3.3792
+198,Tbilisi,Georgia,41.7141,44.8271
+199,Valletta,Malta,35.8989,14.5146
+200,Antwerp,Belgium,51.2194,4.4025
+201,Tunis,Tunisia,33.8869,9.5375
+202,Berkeley Springs,United States,39.627,-78.2272
+203,Beirut,Lebanon,33.8887,35.4698
+204,Ottawa,Canada,45.4215,-75.6972
+205,Lincoln,United States,40.8258,-96.6852
+206,Carlow,Ireland,52.8365,-6.9341
+207,Zhangjiakou,China,40.7675,114.8863
+208,Paramaribo,Suriname,5.852,-55.2038
+209,Cheltenham,United Kingdom,51.8994,-2.0783
+210,Falkenstein,Germany,50.475,12.365
+211,Accra,Ghana,5.6037,-0.187
+212,Douglas,Isle of Man,54.1523,-4.4861

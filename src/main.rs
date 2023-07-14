@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
@@ -7,29 +7,29 @@ use serde::{Deserialize, Serialize};
 use csv::ReaderBuilder;
 use std::error::Error;
 
-use plotters::prelude::*;
+use plotters::{
+    prelude::*,
+    style::full_palette::{BROWN, GREY, INDIGO, LIME, ORANGE, PINK, PURPLE},
+};
+
+const FONT: &str = "IBM Plex Mono, monospace";
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ServerData {
     id: u16,
-    name: String,
     title: String,
-    location: String,
-    state: String,
     country: String,
-    state_abbv: String,
-    continent: String,
     latitude: f32,
     longitude: f32,
 }
 
 fn scatter_plot(
+    buffer: &mut String,
     data: &Array<f64, Dim<[usize; 2]>>,
     assignment: &[usize],
-    output_path: &str,
     title: &str,
 ) {
-    let mut series = HashMap::new();
+    let mut series = BTreeMap::new();
     let mut x_min = f64::MAX;
     let mut x_max = f64::MIN;
     let mut y_min = f64::MAX;
@@ -48,7 +48,7 @@ fn scatter_plot(
             .push((x, y));
     }
 
-    let root_area = BitMapBackend::new(output_path, (1200, 800)).into_drawing_area();
+    let root_area = SVGBackend::with_string(buffer, (1200, 800)).into_drawing_area();
     root_area.fill(&WHITE).unwrap();
 
     // make the plot wider
@@ -60,62 +60,33 @@ fn scatter_plot(
     let mut ctx = ChartBuilder::on(&root_area)
         .set_label_area_size(LabelAreaPosition::Left, 40)
         .set_label_area_size(LabelAreaPosition::Bottom, 40)
-        .caption(title, ("sans-serif", 40))
+        .caption(title, (FONT, 40))
         .build_cartesian_2d(x_min..x_max, y_min..y_max)
         .unwrap();
 
     ctx.configure_mesh().draw().unwrap();
 
-    let colors = vec![BLUE, CYAN, RED, MAGENTA, YELLOW, GREEN, RED];
+    let color_map = DerivedColorMap::new(&[
+        BLUE, CYAN, GREEN, LIME, YELLOW, ORANGE, BROWN, RED, PINK, MAGENTA, PURPLE, INDIGO, GREY,
+    ]);
 
     series.iter().for_each(|(&cluster_index, points)| {
-        let color = if series.len() > colors.len() {
-            let h = *cluster_index as f64 / series.len() as f64;
-            ViridisRGB::get_color(h)
-        } else {
-            colors[*cluster_index]
-        };
+        let color = color_map.get_color(*cluster_index as f64 / series.len() as f64);
+
         ctx.draw_series(points.iter().map(|point| Circle::new(*point, 5, color)))
             .unwrap()
-            .label(format!("Cluster {cluster_index}"))
+            .label(format!("Cluster {cluster_index} ({})", points.len()))
             .legend(move |(x, y)| PathElement::new(vec![(x, y), (x + 20, y)], color));
     });
 
     ctx.configure_series_labels()
         .border_style(BLACK)
         .background_style(WHITE.mix(0.8))
+        .label_font(FONT)
+        .margin(15)
+        .position(SeriesLabelPosition::LowerLeft)
         .draw()
         .unwrap();
-}
-
-fn sample_cluster(
-    x: f64,
-    y: f64,
-    x_scale: f64,
-    y_scale: f64,
-    num_points: usize,
-) -> Array<f64, Dim<[usize; 2]>> {
-    let mut cluster = Array::zeros((num_points, 2));
-
-    for i in 0..num_points {
-        let v: [f64; 2] = UnitDisc.sample(&mut rand::thread_rng());
-        cluster[[i, 0]] = x + v[0] * x_scale;
-        cluster[[i, 1]] = y + v[1] * y_scale;
-    }
-    cluster
-}
-
-fn get_distance_matrix(data: &Array<f64, Dim<[usize; 2]>>) -> Array<f64, Dim<[usize; 2]>> {
-    let mut dist = Array::zeros((data.shape()[0], data.shape()[0]));
-    for i in 0..data.shape()[0] {
-        for j in 0..data.shape()[0] {
-            if i != j {
-                dist[[i, j]] =
-                    (data[[i, 0]] - data[[j, 0]]).powi(2) + (data[[i, 1]] - data[[j, 1]]).powi(2);
-            }
-        }
-    }
-    dist
 }
 
 fn run_kmedoids(
@@ -153,25 +124,28 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
 
 fn calculate_cluster_metrics(
     assignment: &[usize],
-    latency_matrix: &Vec<Vec<f32>>,
+    latency_matrix: &[Vec<f32>],
 ) -> (Vec<f64>, Vec<usize>, f64) {
-    let mut clusters = HashMap::new();
+    let mut clusters = BTreeMap::new();
     for (i, cluster_index) in assignment.iter().enumerate() {
         clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
     }
     let mut mean_inner_cluster_latencies = Vec::new();
     let mut cluster_node_count = Vec::new();
     let mut inner_cluster_latency_sums = 0.0;
-    for (cluster_index, node_indices) in clusters.iter() {
+    for node_indices in clusters.values() {
         let mut latency_sum = 0.0;
         let mut count = 0;
-        for i in 0..node_indices.len() {
-            for j in i + 1..node_indices.len() {
-                latency_sum += latency_matrix[i][j] as f64;
+
+        for (i, &src) in node_indices.iter().enumerate() {
+            for &dst in node_indices[i + 1..].iter() {
+                let sum = latency_matrix[src][dst] as f64;
                 count += 1;
-                inner_cluster_latency_sums += latency_matrix[i][j] as f64;
+                latency_sum += sum;
+                inner_cluster_latency_sums += sum;
             }
         }
+
         mean_inner_cluster_latencies.push(latency_sum / count as f64);
         cluster_node_count.push(node_indices.len());
     }
@@ -180,6 +154,36 @@ fn calculate_cluster_metrics(
         cluster_node_count,
         inner_cluster_latency_sums,
     )
+}
+
+fn sample_cluster(
+    x: f64,
+    y: f64,
+    x_scale: f64,
+    y_scale: f64,
+    num_points: usize,
+) -> Array<f64, Dim<[usize; 2]>> {
+    let mut cluster = Array::zeros((num_points, 2));
+
+    for i in 0..num_points {
+        let v: [f64; 2] = UnitDisc.sample(&mut rand::thread_rng());
+        cluster[[i, 0]] = x + v[0] * x_scale;
+        cluster[[i, 1]] = y + v[1] * y_scale;
+    }
+    cluster
+}
+
+fn get_distance_matrix(data: &Array<f64, Dim<[usize; 2]>>) -> Array<f64, Dim<[usize; 2]>> {
+    let mut dist = Array::zeros((data.shape()[0], data.shape()[0]));
+    for i in 0..data.shape()[0] {
+        for j in 0..data.shape()[0] {
+            if i != j {
+                dist[[i, j]] =
+                    (data[[i, 0]] - data[[j, 0]]).powi(2) + (data[[i, 1]] - data[[j, 1]]).powi(2);
+            }
+        }
+    }
+    dist
 }
 
 fn toy_example() {
@@ -192,17 +196,19 @@ fn toy_example() {
     )
     .unwrap();
 
+    let mut plot_buffer = String::new();
+
     scatter_plot(
+        &mut plot_buffer,
         &data,
         &vec![0; data.shape()[0]],
-        "before.png",
         "Before Clustering",
     );
 
     let dis_matrix = get_distance_matrix(&data);
     let (_, assignment, _, _) = run_kmedoids(&dis_matrix, 3);
 
-    scatter_plot(&data, &assignment, "after.png", "After Clustering");
+    scatter_plot(&mut plot_buffer, &data, &assignment, "After Clustering");
 }
 
 fn main() {
@@ -218,10 +224,12 @@ fn main() {
             data_points[[i, 0]] = server_data.longitude as f64;
         });
 
+    let mut plot_buffer = String::new();
+
     scatter_plot(
+        &mut plot_buffer,
         &data_points,
         &vec![0; data_points.shape()[0]],
-        "before.png",
         "Before Clustering",
     );
 
@@ -234,22 +242,63 @@ fn main() {
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 8;
     let num_clusters = num_servers / optimal_cluster_size;
-    let (_, assignment, num_iterstions, _) = run_kmedoids(&dissim_matrix, num_clusters);
-    scatter_plot(&data_points, &assignment, "after.png", "After Clustering");
+    let (_, assignment, num_iterations, _) = run_kmedoids(&dissim_matrix, num_clusters);
+    scatter_plot(
+        &mut plot_buffer,
+        &data_points,
+        &assignment,
+        "After Clustering",
+    );
 
     let (avg_cluster_latencies, cluster_counts, cluster_latency_sum) =
         calculate_cluster_metrics(&assignment, &matrix);
 
-    println!("num_clusters: {num_clusters}");
-    println!("num_iterstions: {num_iterstions}");
-    println!("cluster_latency_sum: {cluster_latency_sum}");
-    println!();
-    println!("clusters:");
-
+    let mut table_rows = vec![];
     for i in 0..avg_cluster_latencies.len() {
-        println!(
-            "cluster {i} - count: {}, avg_latency: {}",
+        table_rows.push(format!(
+            "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
             cluster_counts[i], avg_cluster_latencies[i]
-        );
+        ));
     }
+
+    // create html report
+    let html = format!(
+        r#"
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Topology Simulation Report</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&display=swap');
+        body {{ font-family: '{FONT}', monospace }}
+        tr:nth-child(even) {{
+            background-color: rgba(150, 212, 212, 0.4);
+        }}
+    </style>
+</head>
+<body>
+    <h1>Topology Simulation Report</h1>
+    <hr>
+    {plot_buffer}
+    <hr>
+    <p>
+        Num. Clusters: {num_clusters}
+        Num. Iterations: {num_iterations}
+        Latency Sum: {cluster_latency_sum}
+    </p>
+    <table>
+        <tr>
+            <th>Cluster</th>
+            <th>Count</th>
+            <th>Avg. Latency</th>
+        </tr>
+        {}
+    </table>
+<body>
+</html>
+          "#,
+        table_rows.join("\n")
+    );
+
+    std::fs::write("report.html", html).unwrap();
 }
