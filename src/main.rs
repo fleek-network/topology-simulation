@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use base64::Engine;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::Rng;
@@ -24,8 +25,8 @@ struct ServerData {
     longitude: f32,
 }
 
-fn histogram(path: &str, values: &[f64], min_val: f64, max_val: f64, title: &str) {
-    let root = BitMapBackend::new(path, (1200, 800)).into_drawing_area();
+fn histogram(values: &[f64], min_val: f64, max_val: f64, title: &str) -> String {
+    let root = BitMapBackend::new("/tmp/histogram.png", (1200, 800)).into_drawing_area();
     root.fill(&WHITE).unwrap();
     let data: Vec<u32> = values.iter().map(|v| v.round() as u32).collect();
 
@@ -33,7 +34,7 @@ fn histogram(path: &str, values: &[f64], min_val: f64, max_val: f64, title: &str
         .x_label_area_size(35)
         .y_label_area_size(40)
         .margin(5)
-        .caption(title, ("sans-serif", 40.0))
+        .caption(title, ("monospace", 40.0))
         .build_cartesian_2d(
             (min_val as u32..max_val as u32).into_segmented(),
             0u32..10u32,
@@ -46,7 +47,7 @@ fn histogram(path: &str, values: &[f64], min_val: f64, max_val: f64, title: &str
         .bold_line_style(WHITE.mix(0.3))
         .y_desc("Count")
         .x_desc("Bucket")
-        .axis_desc_style(("sans-serif", 15))
+        .axis_desc_style(("monospace", 15))
         .draw()
         .unwrap();
 
@@ -58,7 +59,12 @@ fn histogram(path: &str, values: &[f64], min_val: f64, max_val: f64, title: &str
         )
         .unwrap();
 
-    root.present().expect("Unable to write result to file, please make sure 'plotters-doc-data' dir exists under current dir");
+    root.present()
+        .expect("Unable to write temp histogram to file");
+
+    let file = std::fs::read("/tmp/histogram.png").expect("failed to read temp file");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(file);
+    encoded
 }
 
 fn scatter_plot(
@@ -105,7 +111,27 @@ fn scatter_plot(
     ctx.configure_mesh().draw().unwrap();
 
     let color_map = DerivedColorMap::new(&[
-        BLUE, CYAN, GREEN, LIME, YELLOW, ORANGE, BROWN, RED, PINK, MAGENTA, PURPLE, INDIGO, GREY,
+        RGBColor(230, 25, 75),
+        RGBColor(60, 180, 75),
+        RGBColor(255, 225, 25),
+        RGBColor(0, 130, 200),
+        RGBColor(245, 130, 48),
+        RGBColor(145, 30, 180),
+        RGBColor(70, 240, 240),
+        RGBColor(240, 50, 230),
+        RGBColor(210, 245, 60),
+        RGBColor(250, 190, 212),
+        RGBColor(0, 128, 128),
+        RGBColor(220, 190, 255),
+        RGBColor(170, 110, 40),
+        RGBColor(255, 250, 200),
+        RGBColor(128, 0, 0),
+        RGBColor(170, 255, 195),
+        RGBColor(128, 128, 0),
+        RGBColor(255, 215, 180),
+        RGBColor(0, 0, 128),
+        RGBColor(128, 128, 128),
+        RGBColor(0, 0, 0),
     ]);
 
     series.iter().for_each(|(&cluster_index, points)| {
@@ -295,7 +321,7 @@ fn main() {
         }
     }
     let num_servers = dissim_matrix.shape()[0];
-    let optimal_cluster_size = 8;
+    let optimal_cluster_size = 10;
     let num_clusters = num_servers / optimal_cluster_size;
 
     // establish baseline by random assignment
@@ -337,15 +363,13 @@ fn main() {
         min_val = min_val.min(*v);
         max_val = max_val.max(*v);
     });
-    histogram(
-        "random_assignment_latency_histogram.png",
+    let random_assignment_latency_histogram = histogram(
         &avg_cluster_latencies_baseline,
         min_val,
         max_val,
         "Random Assignment Cluster Latency",
     );
-    histogram(
-        "kmedoids_latency_histogram.png",
+    let kmedoids_latency_histogram = histogram(
         &avg_cluster_latencies,
         min_val,
         max_val,
@@ -362,20 +386,15 @@ fn main() {
         min_val = min_val.min(*v);
         max_val = max_val.max(*v);
     });
-    histogram(
-        "random_assignment_sizes_histogram.png",
+    let random_assignment_sizes_histogram = histogram(
         &cluster_counts_baseline,
         min_val,
         max_val,
         "Random Assignment Cluster Sizes",
     );
-    histogram(
-        "kmedoids_sizes_histogram.png",
-        &cluster_counts,
-        min_val,
-        max_val,
-        "K-Medoids Cluster Sizes",
-    );
+
+    let kmedoids_sizes_histogram =
+        histogram(&cluster_counts, min_val, max_val, "K-Medoids Cluster Sizes");
 
     let mut table_rows = vec![];
     for i in 0..avg_cluster_latencies.len() {
@@ -437,14 +456,14 @@ fn main() {
 
     <h1>Cluster Latency Histograms</h1>
     <div style="display: flex;">
-        <img src="random_assignment_latency_histogram.png" width=800 />
-        <img src="kmedoids_latency_histogram.png" width=800 />
+        <img src="data:image/png;base64,{random_assignment_latency_histogram}" width="50%" />
+        <img src="data:image/png;base64,{kmedoids_latency_histogram}" width="50%" />
     </div>
 
     <h1>Cluster Sizes Histograms</h1>
     <div style="display: flex;">
-        <img src="random_assignment_sizes_histogram.png" width=800 />
-        <img src="kmedoids_sizes_histogram.png" width=800 />
+        <img src="data:image/png;base64,{random_assignment_sizes_histogram}" width=800 />
+        <img src="data:image/png;base64,{kmedoids_sizes_histogram}" width=800 />
     </div>
 <body>
 </html>

@@ -12,6 +12,7 @@ plotters = "0.3.3"
 kmedoids = "0.4.3"
 csv = "1.2.2"
 serde = { version = "1.0.9", features = ["derive"] }
+base64 = "0.21.2"
 
 [[bin]]
 name = "parser"
