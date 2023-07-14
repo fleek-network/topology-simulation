@@ -168,15 +168,16 @@ fn run_hdbscan(
 ) -> (Vec<usize>, usize, usize) {
     let (clusters, excess) = HDbscan {
         min_cluster_size,
+        min_samples: 8,
         ..HDbscan::default()
     }
     .fit(dis_matrix);
 
     let num_clusters = clusters.len();
-    let mut assignments = vec![0; dis_matrix.nrows()];
-    for (cluster, nodes) in clusters {
+    let mut assignments = vec![999; dis_matrix.nrows()];
+    for (cluster, nodes) in clusters.values().enumerate() {
         for node in nodes {
-            assignments[node] = cluster;
+            assignments[*node] = cluster;
         }
     }
     (assignments, excess.len(), num_clusters)
@@ -340,8 +341,10 @@ fn main() {
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 10;
     let num_clusters = num_servers / optimal_cluster_size;
-    let mut min_val = f64::MAX;
-    let mut max_val = f64::MIN;
+    let mut min_latency_val = f64::MAX;
+    let mut max_latency_val = f64::MIN;
+    let mut min_size_val = f64::MAX;
+    let mut max_size_val = f64::MIN;
 
     /* BASELINE: RANDOM ASSIGNMENT */
 
@@ -369,26 +372,13 @@ fn main() {
     }
 
     avg_cluster_latencies_baseline.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
+        min_latency_val = min_latency_val.min(*v);
+        max_latency_val = max_latency_val.max(*v);
     });
-    let random_assignment_latency_histogram = histogram(
-        &avg_cluster_latencies_baseline,
-        min_val,
-        max_val,
-        "Random Assignment Cluster Latency",
-    );
-
     cluster_counts_baseline.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
+        min_size_val = min_size_val.min(*v);
+        max_size_val = max_size_val.max(*v);
     });
-    let random_assignment_sizes_histogram = histogram(
-        &cluster_counts_baseline,
-        min_val,
-        max_val,
-        "Random Assignment Cluster Sizes",
-    );
 
     /* K-MEDOIDS */
 
@@ -405,24 +395,14 @@ fn main() {
             cluster_counts[i], avg_cluster_latencies[i]
         ));
     }
-
     avg_cluster_latencies.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
+        min_latency_val = min_latency_val.min(*v);
+        max_latency_val = max_latency_val.max(*v);
     });
-    let kmedoids_latency_histogram = histogram(
-        &avg_cluster_latencies,
-        min_val,
-        max_val,
-        "K-Medoids Cluster Latency",
-    );
-
     cluster_counts.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
+        min_size_val = min_size_val.min(*v);
+        max_size_val = max_size_val.max(*v);
     });
-    let kmedoids_sizes_histogram =
-        histogram(&cluster_counts, min_val, max_val, "K-Medoids Cluster Sizes");
 
     /* HDBSCAN */
 
@@ -449,24 +429,52 @@ fn main() {
             hdbscan_cluster_counts[i], hdbscan_avg_cluster_latencies[i]
         ));
     }
-
     hdbscan_avg_cluster_latencies.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
+        min_latency_val = min_latency_val.min(*v);
+        max_latency_val = max_latency_val.max(*v);
     });
+    hdbscan_cluster_counts.iter().for_each(|v| {
+        min_size_val = min_size_val.min(*v);
+        max_size_val = max_size_val.max(*v);
+    });
+
+    // build histograms
+    let random_assignment_latency_histogram = histogram(
+        &avg_cluster_latencies_baseline,
+        min_latency_val,
+        max_latency_val,
+        "Random Assignment Cluster Latency",
+    );
+    let random_assignment_sizes_histogram = histogram(
+        &cluster_counts_baseline,
+        min_size_val,
+        max_size_val,
+        "Random Assignment Cluster Sizes",
+    );
+    let kmedoids_latency_histogram = histogram(
+        &avg_cluster_latencies,
+        min_latency_val,
+        max_latency_val,
+        "K-Medoids Cluster Latency",
+    );
+    let kmedoids_sizes_histogram = histogram(
+        &cluster_counts,
+        min_size_val,
+        max_size_val,
+        "K-Medoids Cluster Sizes",
+    );
     let hdbscan_latency_histogram = histogram(
         &hdbscan_avg_cluster_latencies,
-        min_val,
-        max_val,
+        min_latency_val,
+        max_latency_val,
         "HDbscan Cluster Latency",
     );
-
-    hdbscan_cluster_counts.iter().for_each(|v| {
-        min_val = min_val.min(*v);
-        max_val = max_val.max(*v);
-    });
-    let hdbscan_sizes_histogram =
-        histogram(&cluster_counts, min_val, max_val, "HDbscan Cluster Sizes");
+    let hdbscan_sizes_histogram = histogram(
+        &hdbscan_cluster_counts,
+        min_size_val,
+        max_size_val,
+        "HDbscan Cluster Sizes",
+    );
 
     // create html report
     let html = format!(
@@ -494,8 +502,8 @@ fn main() {
             <h2>Random Assignment</h2>
             <p>
                 Num. Clusters: {num_clusters}</br>
-                Latency Sum: {cluster_latency_sum_baseline}</br>
-                Latency Sum of All Cluster Means: {cluster_latency_mean_sum_baseline}</br>
+                Latency Sum: {cluster_latency_sum_baseline:.0001}</br>
+                Latency Sum of All Cluster Means: {cluster_latency_mean_sum_baseline:.0001}</br>
             </p>
             <table>
                 <tr>
