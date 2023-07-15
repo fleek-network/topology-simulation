@@ -39,6 +39,16 @@ def scatter_plot(points, assignment, title=''):
     plt.savefig(buf, format='svg')
     return buf.getvalue().decode("utf-8")
 
+def scatter_plot_3d(points, assignment, title=''):
+    fig = plt.figure(figsize=(14, 10))
+    ax = fig.add_subplot(projection='3d')
+    plt.title(title)
+    for i in range(points.shape[0]):
+        cluster_idx = assignment[i]
+        ax.scatter([points[i,0]], [points[i,1]], [points[i,2]], color=np.array(COLORS[cluster_idx % len(COLORS)]) / 255.)
+    buf = io.BytesIO()
+    plt.savefig(buf, format='svg')
+    return buf.getvalue().decode("utf-8")
 
 def run_toy_example():
     cluster1 = np.random.multivariate_normal(mean=[1,1], cov=np.eye(2), size=10)
@@ -99,7 +109,7 @@ def run():
 
     svg_plot_before = scatter_plot(data_points, np.zeros(data_points.shape[0], dtype='int'), title='Before Clustering')
     
-    embedding = MDS(n_components=2, metric=True, dissimilarity='precomputed', normalized_stress='auto')
+    embedding = MDS(n_components=3, metric=True, dissimilarity='precomputed', normalized_stress='auto')
     matrix = matrix.to_numpy()
 
     # TODO: average upper and lower triangular matrices
@@ -107,7 +117,7 @@ def run():
     matrix[i_lower] = matrix.T[i_lower]
     data_points_mds = embedding.fit_transform(matrix)
 
-    svg_plot_mds = scatter_plot(data_points_mds, np.zeros(data_points.shape[0], dtype='int'), title='Before Clustering MDS')
+    svg_plot_mds = scatter_plot_3d(data_points_mds, np.zeros(data_points.shape[0], dtype='int'), title='Before Clustering MDS')
 
     num_nodes = data_points.shape[0]
     num_clusters = num_nodes // 8
@@ -121,9 +131,7 @@ def run():
     clf.cluster_centers_
     clf.labels_
     svg_plot_kmeans = scatter_plot(data_points, clf.labels_, title='KMeansConstrained')
-    svg_plot_kmeans_mds = scatter_plot(data_points_mds, clf.labels_, title='KMeansConstrained (MDS embeddings)')
-
-    
+    svg_plot_kmeans_mds = scatter_plot_3d(data_points_mds, clf.labels_, title='KMeansConstrained (MDS embeddings)')
 
     html = f"""<!DOCTYPE html>
     <html>
