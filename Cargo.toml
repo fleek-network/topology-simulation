@@ -16,6 +16,9 @@ csv = "1.2.2"
 serde = { version = "1.0.9", features = ["derive"] }
 base64 = "0.21.2"
 
+# constrained kmedoids deps 
+num-traits = "0.2.9"
+
 [[bin]]
 name = "parser"
 path = "src/parser.rs"

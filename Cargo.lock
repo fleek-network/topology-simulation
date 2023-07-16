@@ -95,6 +95,7 @@ dependencies = [
  "kmedoids",
  "ndarray",
  "ndarray-rand",
+ "num-traits",
  "petal-clustering",
  "petal-neighbors",
  "plotters",

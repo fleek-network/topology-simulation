@@ -1,3 +1,5 @@
+mod ckmedoids;
+
 use std::collections::BTreeMap;
 
 use base64::Engine;
