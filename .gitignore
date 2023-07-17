@@ -3,3 +3,4 @@ pings*.csv
 server*.csv
 *.png
 *.html
+__pycache__
