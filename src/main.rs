@@ -7,7 +7,7 @@ use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use petal_clustering::{Fit, HDbscan};
 use petal_neighbors::distance::Euclidean;
-use rand::Rng;
+use rand::{self, Rng};
 use serde::{Deserialize, Serialize};
 
 use csv::ReaderBuilder;
