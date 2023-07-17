@@ -10,6 +10,11 @@ import warnings
 import numpy as np
 from ortools.graph.python.min_cost_flow import SimpleMinCostFlow
 
+import pyximport
+pyximport.install()
+from k_medoids_helper import _compute_optimal_swap, _build
+
+
 
 def _compute_inertia(distances):
     """Compute inertia of new samples. Inertia is defined as the sum of the

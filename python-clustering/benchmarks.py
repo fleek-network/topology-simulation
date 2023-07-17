@@ -33,7 +33,7 @@ for i in range(num_clusters):
 nodes = np.concatenate(nodes, axis=0)
 D = np.sum((np.expand_dims(nodes, axis=1) - nodes)**2, axis=-1)
 
-kmedoids_constr = ConstrainedKMedoids(n_clusters=10_000 // 8, min_cluster_size=6, max_cluster_size=18, metric='precomputed', random_state=0)
+kmedoids_constr = ConstrainedKMedoids(n_clusters=10_000 // 8, method='pam', min_cluster_size=6, max_cluster_size=18, metric='precomputed', random_state=0)
 start = time.time()
 kmedoids_constr.fit(D)
 print(f'ConstrainedKMedoids duration: {time.time() - start}')
