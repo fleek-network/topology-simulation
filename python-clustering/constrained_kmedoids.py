@@ -8,6 +8,7 @@ from sklearn.utils.extmath import cartesian
 from sklearn.utils.validation import check_is_fitted
 import warnings
 import numpy as np
+from ortools.graph.python.min_cost_flow import SimpleMinCostFlow
 
 
 def _compute_inertia(distances):
@@ -31,7 +32,90 @@ def _compute_inertia(distances):
     return inertia
 
 
-class KMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
+def minimum_cost_flow_problem_graph(num_nodes, num_medoids, D, size_min, size_max):
+    # Setup minimum cost flow formulation graph
+    # Vertices indexes:
+    # X-nodes: [0, n(x)-1], C-nodes: [n(X), n(X)+n(C)-1], C-dummy nodes:[n(X)+n(C), n(X)+2*n(C)-1],
+    # Artificial node: [n(X)+2*n(C), n(X)+2*n(C)+1-1]
+
+    # Create indices of nodes
+    n_X = num_nodes
+    n_C = num_medoids
+    X_ix = np.arange(n_X)
+    C_dummy_ix = np.arange(X_ix[-1] + 1, X_ix[-1] + 1 + n_C)
+    C_ix = np.arange(C_dummy_ix[-1] + 1, C_dummy_ix[-1] + 1 + n_C)
+    art_ix = C_ix[-1] + 1
+
+    # Edges
+    edges_X_C_dummy = cartesian([X_ix, C_dummy_ix])  # All X's connect to all C dummy nodes (C')
+    edges_C_dummy_C = np.stack([C_dummy_ix, C_ix], axis=1)  # Each C' connects to a corresponding C (centroid)
+    edges_C_art = np.stack([C_ix, art_ix * np.ones(n_C)], axis=1)  # All C connect to artificial node
+
+    edges = np.concatenate([edges_X_C_dummy, edges_C_dummy_C, edges_C_art])
+
+    # Costs
+    costs_X_C_dummy = D.reshape(D.size)
+    costs = np.concatenate([costs_X_C_dummy, np.zeros(edges.shape[0] - len(costs_X_C_dummy))])
+
+    # Capacities - can set for max-k
+    capacities_C_dummy_C = size_max * np.ones(n_C)
+    cap_non = n_X  # The total supply and therefore wont restrict flow
+    capacities = np.concatenate([
+        np.ones(edges_X_C_dummy.shape[0]),
+        capacities_C_dummy_C,
+        cap_non * np.ones(n_C)
+    ])
+
+    # Sources and sinks
+    supplies_X = np.ones(n_X)
+    supplies_C = -1 * size_min * np.ones(n_C)  # Demand node
+    supplies_art = -1 * (n_X - n_C * size_min)  # Demand node
+    supplies = np.concatenate([
+        supplies_X,
+        np.zeros(n_C),  # C_dummies
+        supplies_C,
+        [supplies_art]
+    ])
+
+    # All arrays must be of int dtype for `SimpleMinCostFlow`
+    edges = edges.astype('int32')
+    costs = np.around(costs * 1000, 0).astype('int32')  # Times by 1000 to give extra precision
+    capacities = capacities.astype('int32')
+    supplies = supplies.astype('int32')
+
+    return edges, costs, capacities, supplies, n_C, n_X
+
+
+def solve_min_cost_flow_graph(edges, costs, capacities, supplies, n_C, n_X):
+    # Instantiate a SimpleMinCostFlow solver.
+    min_cost_flow = SimpleMinCostFlow()
+
+    if (edges.dtype != 'int32') or (costs.dtype != 'int32') \
+            or (capacities.dtype != 'int32') or (supplies.dtype != 'int32'):
+        raise ValueError("`edges`, `costs`, `capacities`, `supplies` must all be int dtype")
+
+    N_edges = edges.shape[0]
+    N_nodes = len(supplies)
+
+    # Add each edge with associated capacities and cost
+    min_cost_flow.add_arcs_with_capacity_and_unit_cost(edges[:, 0], edges[:, 1], capacities, costs)
+
+    # Add node supplies
+    for count, supply in enumerate(supplies):
+        min_cost_flow.set_node_supply(count, supply)
+
+    # Find the minimum cost flow between node 0 and node 4.
+    if min_cost_flow.solve() != min_cost_flow.OPTIMAL:
+        raise Exception('There was an issue with the min cost flow input.')
+
+    # Assignment
+    labels_M = np.array([min_cost_flow.flow(i) for i in range(n_X * n_C)]).reshape(n_X, n_C).astype('int32')
+
+    labels = labels_M.argmax(axis=1)
+    return labels
+
+
+class ConstrainedKMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
     """k-medoids clustering.
 
     Read more in the :ref:`User Guide <k_medoids>`.
@@ -139,6 +223,8 @@ class KMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
         metric="euclidean",
         method="alternate",
         init="heuristic",
+        min_cluster_size=2,
+        max_cluster_size=12,
         max_iter=300,
         random_state=None,
     ):
@@ -147,6 +233,8 @@ class KMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
         self.method = method
         self.init = init
         self.max_iter = max_iter
+        self.min_cluster_size = min_cluster_size
+        self.max_cluster_size = max_cluster_size
         self.random_state = random_state
 
 
@@ -252,6 +340,19 @@ class KMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
             old_medoid_idxs = np.copy(medoid_idxs)
             labels = np.argmin(D[medoid_idxs, :], axis=0)
 
+            # min flow graph
+            if self.n_iter_ > 0:
+                num_nodes = len(labels)
+                num_medoids = len(medoid_idxs)
+                
+                dist_to_medoids = np.zeros((num_nodes, num_medoids))
+                for i in range(num_nodes):
+                    for j in range(len(medoid_idxs)):
+                        dist_to_medoids[i, j] = X[i, medoid_idxs[j]]
+
+                edges, costs, capacities, supplies, n_C, n_X = minimum_cost_flow_problem_graph(num_nodes, num_medoids, dist_to_medoids, self.min_cluster_size, self.max_cluster_size)
+                labels = solve_min_cost_flow_graph(edges, costs, capacities, supplies, n_C, n_X)
+
             if self.method == "alternate":
                 # Update medoids with the new cluster indices
                 self._update_medoid_idxs_in_place(D, labels, medoid_idxs)
@@ -288,6 +389,8 @@ class KMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
                     ConvergenceWarning,
                 )
 
+
+
         # Set the resulting instance variables.
         if self.metric == "precomputed":
             self.cluster_centers_ = None
@@ -299,6 +402,18 @@ class KMedoids(BaseEstimator, ClusterMixin, TransformerMixin):
         self.labels_ = np.argmin(D[medoid_idxs, :], axis=0)
         self.medoid_indices_ = medoid_idxs
         self.inertia_ = _compute_inertia(self.transform(X))
+
+        # min flow graph
+        num_nodes = len(self.labels_)
+        num_medoids = len(self.medoid_indices_)
+        
+        dist_to_medoids = np.zeros((num_nodes, num_medoids))
+        for i in range(num_nodes):
+            for j in range(len(self.medoid_indices_)):
+                dist_to_medoids[i, j] = X[i, self.medoid_indices_[j]]
+
+        edges, costs, capacities, supplies, n_C, n_X = minimum_cost_flow_problem_graph(num_nodes, num_medoids, dist_to_medoids, self.min_cluster_size, self.max_cluster_size)
+        self.labels_ = solve_min_cost_flow_graph(edges, costs, capacities, supplies, n_C, n_X)
 
         # Return self to enable method chaining
         return self

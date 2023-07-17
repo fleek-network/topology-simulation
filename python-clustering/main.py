@@ -9,6 +9,7 @@ from sklearn.manifold import MDS
 import sys
 
 from kmedoids import KMedoids
+from constrained_kmedoids import minimum_cost_flow_problem_graph, solve_min_cost_flow_graph, ConstrainedKMedoids
 
 
 COLORS = [(230, 25, 75),
@@ -184,6 +185,31 @@ def run():
     cluster_metrics_kmedoids, latency_sum_of_all_clusters_kmedoids, latency_mean_of_all_clusters_kmedoids = calculate_cluster_metrics(kmedoids.labels_, matrix)
     table_rows_kmedoids = get_table_rows(cluster_metrics_kmedoids)
 
+    # Run Constrained K-Medoids
+    #num_medoids = len(kmedoids.medoid_indices_)
+    #cluster_min_size = 6
+    #cluster_max_size = 12
+    #
+    #D = np.zeros((num_nodes, num_medoids))
+    #for i in range(num_nodes):
+    #    for j in range(len(kmedoids.medoid_indices_)):
+    #        D[i, j] = matrix[i, kmedoids.medoid_indices_[j]]
+
+    #edges, costs, capacities, supplies, n_C, n_X = minimum_cost_flow_problem_graph(num_nodes, num_medoids, D, cluster_min_size, cluster_max_size)
+    #assignment_kmedoids_contrained = solve_min_cost_flow_graph(edges, costs, capacities, supplies, n_C, n_X)
+
+    #svg_plot_kmedoids_constr = scatter_plot(data_points, assignment_kmedoids_contrained, title='Constrained K-Medoids')
+    #cluster_metrics_kmedoids_constr, latency_sum_of_all_clusters_kmedoids_constr, latency_mean_of_all_clusters_kmedoids_constr = calculate_cluster_metrics(assignment_kmedoids_contrained, matrix)
+    #table_rows_kmedoids_constr = get_table_rows(cluster_metrics_kmedoids_constr)
+
+    kmedoids_constr = ConstrainedKMedoids(n_clusters=num_clusters, min_cluster_size=6, max_cluster_size=18, metric='precomputed', random_state=0)
+    kmedoids_constr.fit(matrix)
+
+    svg_plot_kmedoids_constr = scatter_plot(data_points, kmedoids.labels_, title='Constrained K-Medoids')
+    cluster_metrics_kmedoids_constr, latency_sum_of_all_clusters_kmedoids_constr, latency_mean_of_all_clusters_kmedoids_constr = calculate_cluster_metrics(kmedoids_constr.labels_, matrix)
+    table_rows_kmedoids_constr = get_table_rows(cluster_metrics_kmedoids_constr)
+
+
 
     html = f"""<!DOCTYPE html>
     <html>
@@ -206,6 +232,8 @@ def run():
         {svg_plot_kmeans}
         <hr>
         {svg_plot_kmedoids}
+        <hr>
+        {svg_plot_kmedoids_constr}
         <p><h2>Metrics</h2></p>
         <div style="display: flex; gap: 20px;">
             <div>
@@ -241,6 +269,24 @@ def run():
                         <th>Max. Latency</th>
                     </tr>
                     {table_rows_kmedoids}
+                </table>
+            </div>
+
+            <div>
+                <h3>Constrained K-Medoids</h3>
+                Num. Clusters: {len(cluster_metrics_kmedoids_constr)}</br>
+                Sum of Cluster Latency Means: {np.round(latency_mean_of_all_clusters_kmedoids_constr, 2)}</br>
+                Sum of Cluster Latency Sums: {np.round(latency_sum_of_all_clusters_kmedoids_constr, 2)}</br>
+                <table>
+                    <tr>
+                        <th>Cluster</th>
+                        <th>Count</th>
+                        <th>Avg. Latency</th>
+                        <th>Std Dev.</th>
+                        <th>Min. Latency</th>
+                        <th>Max. Latency</th>
+                    </tr>
+                    {table_rows_kmedoids_constr}
                 </table>
             </div>
         </div>
