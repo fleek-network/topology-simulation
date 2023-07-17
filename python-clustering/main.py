@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
+
 from k_means_constrained import KMeansConstrained
 from sklearn.manifold import MDS
 import sys
@@ -45,19 +46,25 @@ def calculate_cluster_metrics(assignment, latency_matrix):
     latency_mean_of_all_clusters = 0.0
     for cluster_index in clusters:
         latency_values = []
+        cluster_metrics[cluster_index] = {'mean': np.nan,
+                                          'std': np.nan,
+                                          'min': np.nan,
+                                          'max': np.nan,
+                                          'count': len(clusters[cluster_index])}
         for i in range(len(clusters[cluster_index])):
             for j in range(len(clusters[cluster_index])):
                 if i != j:
                     idx1 = clusters[cluster_index][i]
                     idx2 = clusters[cluster_index][j]
                     latency_values.append(latency_matrix[idx1, idx2])
-        cluster_metrics[cluster_index] = {'mean': np.mean(latency_values),
-                                          'std': np.std(latency_values),
-                                          'min': np.min(latency_values),
-                                          'max': np.max(latency_values),
-                                          'count': len(clusters[cluster_index])}
-        latency_sum_of_all_clusters += np.sum(latency_values)
-        latency_mean_of_all_clusters += np.mean(latency_values)
+        
+        if len(latency_values) > 1:
+            cluster_metrics[cluster_index]['mean'] = np.mean(latency_values)
+            cluster_metrics[cluster_index]['std'] = np.std(latency_values)
+            cluster_metrics[cluster_index]['min'] = np.min(latency_values)
+            cluster_metrics[cluster_index]['max'] = np.max(latency_values)
+            latency_sum_of_all_clusters += np.sum(latency_values)
+            latency_mean_of_all_clusters += np.mean(latency_values)
 
     return cluster_metrics, latency_sum_of_all_clusters, latency_mean_of_all_clusters
 
@@ -71,6 +78,18 @@ def scatter_plot(points, assignment, title=''):
     buf = io.BytesIO()
     plt.savefig(buf, format='svg')
     return buf.getvalue().decode("utf-8")
+
+
+def get_table_rows(cluster_metrics, decimals=2):
+    table_rows = [];
+    for cluster_index in cluster_metrics:
+        count = cluster_metrics[cluster_index]['count']
+        mean = np.round(cluster_metrics[cluster_index]['mean'], decimals)
+        std = np.round(cluster_metrics[cluster_index]['std'], decimals)
+        min_val = np.round(cluster_metrics[cluster_index]['min'], decimals)
+        max_val = np.round(cluster_metrics[cluster_index]['max'], decimals)
+        table_rows.append(f'<tr><td>{cluster_index}</td><td>{count}</td><td>{mean}</td><td>{std}</td><td>{min_val}</td><td>{max_val}</td></tr>')
+    return ''.join(table_rows)
 
 
 def run_toy_example():
@@ -131,13 +150,15 @@ def run():
 
     svg_plot_before = scatter_plot(data_points, np.zeros(data_points.shape[0], dtype='int'), title='Before Clustering')
     
+    # Run K-Means
     embedding = MDS(n_components=2, metric=True, dissimilarity='precomputed', normalized_stress='auto')
     matrix = matrix.to_numpy()
 
     # TODO: average upper and lower triangular matrices
-    i_lower = np.tril_indices(matrix.shape[0], -1)
-    matrix[i_lower] = matrix.T[i_lower]
-    data_points_mds = embedding.fit_transform(matrix)
+    matrix_symmetric = np.copy(matrix)
+    i_lower = np.tril_indices(matrix_symmetric.shape[0], -1)
+    matrix_symmetric[i_lower] = matrix_symmetric.T[i_lower]
+    data_points_mds = embedding.fit_transform(matrix_symmetric)
 
     num_nodes = data_points.shape[0]
     num_clusters = num_nodes // 8
@@ -150,17 +171,20 @@ def run():
     clf.fit_predict(data_points_mds)
     clf.cluster_centers_
     clf.labels_
-    svg_plot_kmeans = scatter_plot(data_points, clf.labels_, title='KMeansConstrained')
-    cluster_metrics, latency_sum_of_all_clusters, latency_mean_of_all_clusters = calculate_cluster_metrics(clf.labels_, matrix)
+    svg_plot_kmeans = scatter_plot(data_points, clf.labels_, title='Constrained K-Means')
+    cluster_metrics_kmeans, latency_sum_of_all_clusters_kmeans, latency_mean_of_all_clusters_kmeans = calculate_cluster_metrics(clf.labels_, matrix)
+    table_rows_kmeans = get_table_rows(cluster_metrics_kmeans)
     
-    table_rows_kmeans = [];
-    for cluster_index in cluster_metrics:
-        count = cluster_metrics[cluster_index]['count']
-        mean = np.round(cluster_metrics[cluster_index]['mean'], 2)
-        std = np.round(cluster_metrics[cluster_index]['std'], 2)
-        min_val = np.round(cluster_metrics[cluster_index]['min'], 2)
-        max_val = np.round(cluster_metrics[cluster_index]['max'], 2)
-        table_rows_kmeans.append(f'<tr><td>{cluster_index}</td><td>{count}</td><td>{mean}</td><td>{std}</td><td>{min_val}</td><td>{max_val}</td></tr>')
+
+    # Run K-Medoids
+    kmedoids = KMedoids(n_clusters=num_clusters, metric='precomputed', random_state=0)
+    kmedoids.fit(matrix)
+
+    svg_plot_kmedoids = scatter_plot(data_points, kmedoids.labels_, title='K-Medoids')
+    cluster_metrics_kmedoids, latency_sum_of_all_clusters_kmedoids, latency_mean_of_all_clusters_kmedoids = calculate_cluster_metrics(kmedoids.labels_, matrix)
+    table_rows_kmedoids = get_table_rows(cluster_metrics_kmedoids)
+
+
     html = f"""<!DOCTYPE html>
     <html>
     <head>
@@ -175,29 +199,50 @@ def run():
     </head>
     <body>
         <h1>Topology Simulation Report</h1>
-        <p>Servers</p>
+        <p><h2>Servers</h2></p>
         <hr>
         {svg_plot_before}
         <hr>
         {svg_plot_kmeans}
         <hr>
-        <p><h1>Metrics</h1></p>
-        <div>
-            <h2>Constrained K-Means</h2>
-            Num. Clusters: {len(cluster_metrics)}</br>
-            Sum of Cluster Latency Means: {np.round(latency_mean_of_all_clusters, 2)}</br>
-            Sum of Cluster Latency Sums: {np.round(latency_sum_of_all_clusters, 2)}</br>
-            <table>
-                <tr>
-                    <th>Cluster</th>
-                    <th>Count</th>
-                    <th>Avg. Latency</th>
-                    <th>Std Dev.</th>
-                    <th>Min. Latency</th>
-                    <th>Max. Latency</th>
-                </tr>
-                {''.join(table_rows_kmeans)}
-            </table>
+        {svg_plot_kmedoids}
+        <p><h2>Metrics</h2></p>
+        <div style="display: flex; gap: 20px;">
+            <div>
+                <h3>Constrained K-Means</h3>
+                Num. Clusters: {len(cluster_metrics_kmeans)}</br>
+                Sum of Cluster Latency Means: {np.round(latency_mean_of_all_clusters_kmeans, 2)}</br>
+                Sum of Cluster Latency Sums: {np.round(latency_sum_of_all_clusters_kmeans, 2)}</br>
+                <table>
+                    <tr>
+                        <th>Cluster</th>
+                        <th>Count</th>
+                        <th>Avg. Latency</th>
+                        <th>Std Dev.</th>
+                        <th>Min. Latency</th>
+                        <th>Max. Latency</th>
+                    </tr>
+                    {table_rows_kmeans}
+                </table>
+            </div>
+
+            <div>
+                <h3>K-Medoids</h3>
+                Num. Clusters: {len(cluster_metrics_kmedoids)}</br>
+                Sum of Cluster Latency Means: {np.round(latency_mean_of_all_clusters_kmedoids, 2)}</br>
+                Sum of Cluster Latency Sums: {np.round(latency_sum_of_all_clusters_kmedoids, 2)}</br>
+                <table>
+                    <tr>
+                        <th>Cluster</th>
+                        <th>Count</th>
+                        <th>Avg. Latency</th>
+                        <th>Std Dev.</th>
+                        <th>Min. Latency</th>
+                        <th>Max. Latency</th>
+                    </tr>
+                    {table_rows_kmedoids}
+                </table>
+            </div>
         </div>
     <body>
     </html>"""
@@ -210,8 +255,4 @@ if __name__ == '__main__':
     # run_toy_example()
     run()
 
-    X = np.asarray([[1, 2], [1, 4], [1, 0],
-                [4, 2], [4, 4], [4, 0]])
-    kmedoids = KMedoids(n_clusters=2, random_state=0).fit(X)
-    kmedoids.labels_
     
