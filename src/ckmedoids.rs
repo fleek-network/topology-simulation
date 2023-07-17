@@ -7,8 +7,9 @@
 //! constrained k-means implementation.
 
 use core::ops::AddAssign;
+use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use num_traits::{Signed, Zero};
-use std::convert::From;
+use std::{collections::BTreeMap, convert::From};
 
 /// Adapter trait for accessing different types of arrays
 #[allow(clippy::len_without_is_empty)]
@@ -217,39 +218,7 @@ where
         iter += 1;
         let swaps_before = n_swaps;
 
-        // TODO: build min cost flow graph
-        //
-        // - Graph nodes
-        //   - Non-medoids are supply nodes
-        //   - medoid prime indeces do not have a role (hop used for max constraint)
-        //   - medoid indeces are demand nodes
-        //   - one artificial demand node to ensure total demand = total supply
-        //
-        // - Edges
-        //   - source -> [supply nodes]
-        //     - capacity: 1
-        //     - cost: 0
-        //   - [supply nodes] -> [medoid primes]
-        //     - capacity: 1
-        //     - cost: lookup via DS matrix
-        //   - [medoid primes -> medoids] (all pairs)
-        //     - capacity: size_max
-        //     - cost: 0
-        //   - [medoids] -> artificial node
-        //     - capacity: n_supply
-        //     - cost: 0
-        //   - [medoid primes] -> sink
-        //     - capacity: size_min
-        //     - cost: 0
-        //   - artificial node -> sink
-        //     - capacity:  n_supply - n_medoids * size_min
-        //     - cost: 0
-
-        // build sources -> supplies
-        // build
-
-        // TODO: solve min cost flow graph and reassign node clusters
-
+        // for each node
         for j in 0..n {
             if j == lastswap {
                 break;
@@ -257,6 +226,7 @@ where
             if j == med[data[j].near.i as usize] {
                 continue; // This already is a medoid
             }
+            // for each medoid
             let (change, b) = find_best_swap(mat, &removal_loss, &data, j);
             if change >= L::zero() {
                 continue; // No improvement
@@ -347,6 +317,101 @@ where
     }
     let (b, bloss) = find_min(&mut ploss.iter());
     (bloss + acc, b) // add the shared accumulator
+}
+
+/// Build and solve a min cost max flow graph for the given medoids
+///
+/// - Non-medoids are supply nodes
+/// - medoid indeces do not have a role (hop used for max constraint)
+/// - medoid' indeces are demand nodes
+/// - one artificial demand node to ensure total demand = total supply
+fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> Vec<usize> {
+    // - Edges
+    //   - source -> [supply nodes]
+    //     - capacity: 1
+    //     - cost: 0
+    //   - [supply nodes] -> [medoid]
+    //     - capacity: 1
+    //     - cost: lookup via DS matrix
+    //   - [medoid -> medoid'] (all pairs)
+    //     - capacity: size_max
+    //     - cost: 0
+    //   - [medoid'] -> artificial node
+    //     - capacity: n_supply
+    //     - cost: 0
+    //   - [medoid'] -> sink
+    //     - capacity: size_min
+    //     - cost: 0
+    //   - artificial node -> sink
+    //     - capacity:  n_supply - n_medoids * size_min
+    //     - cost: 0
+
+    const ARTIFICIAL_IDX: usize = usize::MAX;
+    const MAX: usize = 2;
+    const MIN: usize = 10;
+    let total = mat.len();
+    let k = medoids.len();
+    let n_nodes = total - k;
+
+    let mut graph = GraphBuilder::new();
+
+    for i in 0..mat.len() {
+        if !medoids.contains(&i) {
+            // source -> supply node
+            graph.add_edge(Vertex::Source, i, Capacity(1), Cost(0));
+
+            for &j in medoids {
+                // supply node -> medoid
+                let cost = (mat.get(i, j) * 1000.) as i32;
+                graph.add_edge(i, j, Capacity(1), Cost(cost));
+            }
+        }
+    }
+
+    for (prime_offset, &idx) in medoids.iter().enumerate() {
+        let prime_idx = usize::MAX - prime_offset - 1;
+
+        // medoid -> medoid'
+        graph.add_edge(idx, prime_idx, Capacity(MAX as i32), Cost(0));
+
+        // medoid' -> artificial
+        graph.add_edge(prime_idx, ARTIFICIAL_IDX, Capacity(n_nodes as i32), Cost(0));
+
+        // medoid' -> sink
+        graph.add_edge(prime_idx, Vertex::Sink, Capacity(MIN as i32), Cost(0));
+    }
+
+    // artificial node -> sink
+    graph.add_edge(
+        ARTIFICIAL_IDX,
+        Vertex::Sink,
+        Capacity((n_nodes - k * MIN) as i32),
+        Cost(0),
+    );
+
+    // solve graph
+    let (_total_cost, paths) = graph.mcmf();
+    let mut mappings: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+
+    for path in paths {
+        let verts = path.vertices();
+
+        let node = verts[1].as_option().unwrap();
+        let medoid = verts[2].as_option().unwrap();
+
+        let ids = mappings.entry(medoid).or_insert(vec![medoid]);
+        ids.push(node);
+    }
+
+    println!("{mappings:?}");
+
+    let mut labels = vec![0; total];
+    for (cluster, nodes) in mappings.values().enumerate() {
+        for node in nodes {
+            labels[*node] = cluster;
+        }
+    }
+    labels
 }
 
 /// Update the loss when removing each medoid

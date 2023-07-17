@@ -1,13 +1,13 @@
 mod ckmedoids;
+mod constrained_k_medoids;
 
 use std::collections::BTreeMap;
 
 use base64::Engine;
+use constrained_k_medoids::ConstrainedKMedoids;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
-use petal_clustering::{Fit, HDbscan};
-use petal_neighbors::distance::Euclidean;
-use rand::{self, Rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use csv::ReaderBuilder;
@@ -165,25 +165,19 @@ fn run_kmedoids(
     kmedoids::fasterpam(dis_matrix, &mut meds, 100)
 }
 
-fn run_hdbscan(
-    min_cluster_size: usize,
-    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
-) -> (Vec<usize>, usize, usize) {
-    let (clusters, excess) = HDbscan {
-        min_cluster_size,
-        min_samples: 8,
-        ..HDbscan::default()
-    }
-    .fit(dis_matrix);
+fn run_constrained_kmedoids(
+    dis_matrix: Array<f64, Dim<[usize; 2]>>,
+    num_clusters: usize,
+) -> (Vec<usize>, usize) {
+    let mut meds = kmedoids::random_initialization(
+        dis_matrix.shape()[0],
+        num_clusters,
+        &mut rand::thread_rng(),
+    );
 
-    let num_clusters = clusters.len();
-    let mut assignments = vec![999; dis_matrix.nrows()];
-    for (cluster, nodes) in clusters.values().enumerate() {
-        for node in nodes {
-            assignments[*node] = cluster;
-        }
-    }
-    (assignments, excess.len(), num_clusters)
+    let mut alg = ConstrainedKMedoids::new(dis_matrix, &meds, 6, 10);
+    let labels = alg.cpam();
+    (labels, num_clusters)
 }
 
 fn get_random_assignment(num_clusters: usize, num_nodes: usize) -> Vec<usize> {
@@ -308,60 +302,14 @@ fn toy_example() {
     );
 
     let dis_matrix = get_distance_matrix(&data);
-    let (_, assignment, _, _) = run_kmedoids(&dis_matrix, 3);
+    let (assignment, _) = run_constrained_kmedoids(dis_matrix.clone(), 3);
 
-    scatter_plot(&mut plot_buffer, &data, &assignment, "K-Medoids Clustering");
-
-    //
-    let (clusters, excess) = HDbscan {
-        min_cluster_size: 8,
-        min_samples: 8,
-        eps: 0.1,
-        alpha: 1.0,
-        metric: Euclidean::default(),
-        boruvka: true,
-    }
-    .fit(&dis_matrix);
-
-    let num_clusters = clusters.len();
-    let mut assignment = vec![999; dis_matrix.nrows()];
-    for (cluster, nodes) in clusters.values().enumerate() {
-        for node in nodes {
-            assignment[*node] = cluster;
-        }
-    }
     scatter_plot(
         &mut plot_buffer,
         &data,
         &assignment,
-        "HBDSCAN Clustering (dis_matrix)",
+        "Constrained K-Medoids Clustering (WIP)",
     );
-
-    let (clusters, excess) = HDbscan {
-        min_cluster_size: 8,
-        min_samples: 8,
-        eps: 0.1,
-        alpha: 1.0,
-        metric: Euclidean::default(),
-        boruvka: true,
-    }
-    .fit(&data);
-
-    let num_clusters = clusters.len();
-    let mut assignment = vec![999; dis_matrix.nrows()];
-    for (cluster, nodes) in clusters.values().enumerate() {
-        for node in nodes {
-            assignment[*node] = cluster;
-        }
-    }
-    scatter_plot(
-        &mut plot_buffer,
-        &data,
-        &assignment,
-        "HBDSCAN Clustering (embeddings)",
-    );
-
-    //
 
     let html = format!(
         r#"
@@ -391,7 +339,7 @@ fn toy_example() {
 }
 
 fn main() {
-    toy_example();
+    //toy_example();
 
     let matrix = read_latency_matrix("matrix.csv").unwrap();
     let metadata = read_metadata("metadata.csv").unwrap();
@@ -486,36 +434,36 @@ fn main() {
         max_size_val = max_size_val.max(*v);
     });
 
-    /* HDBSCAN */
+    /* WIP CONSTRAINED K-MEDOIDS */
 
-    let (hdbscan_assignment, hdbscan_loss, hdbscan_num_clusters) =
-        run_hdbscan(optimal_cluster_size, &dissim_matrix);
+    let (assignment, num_iterations) =
+        run_constrained_kmedoids(dissim_matrix.clone(), num_clusters);
     scatter_plot(
         &mut plot_buffer,
         &data_points,
-        &hdbscan_assignment,
-        "HDbscan",
+        &assignment,
+        "WIP Constrained K-Medoids",
     );
 
     let (
-        hdbscan_avg_cluster_latencies,
-        hdbscan_cluster_counts,
-        hdbscan_cluster_latency_sum,
-        hdbscan_cluster_latency_mean_sum,
-    ) = calculate_cluster_metrics(&hdbscan_assignment, &matrix);
+        const_avg_cluster_latencies,
+        const_cluster_counts,
+        const_cluster_latency_sum,
+        const_cluster_latency_mean_sum,
+    ) = calculate_cluster_metrics(&assignment, &matrix);
 
-    let mut hdbscan_table_rows = vec![];
-    for i in 0..hdbscan_avg_cluster_latencies.len() {
-        hdbscan_table_rows.push(format!(
+    let mut const_table_rows = vec![];
+    for i in 0..const_avg_cluster_latencies.len() {
+        const_table_rows.push(format!(
             "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
-            hdbscan_cluster_counts[i], hdbscan_avg_cluster_latencies[i]
+            const_cluster_counts[i], const_avg_cluster_latencies[i]
         ));
     }
-    hdbscan_avg_cluster_latencies.iter().for_each(|v| {
+    const_avg_cluster_latencies.iter().for_each(|v| {
         min_latency_val = min_latency_val.min(*v);
         max_latency_val = max_latency_val.max(*v);
     });
-    hdbscan_cluster_counts.iter().for_each(|v| {
+    const_cluster_counts.iter().for_each(|v| {
         min_size_val = min_size_val.min(*v);
         max_size_val = max_size_val.max(*v);
     });
@@ -546,16 +494,16 @@ fn main() {
         "K-Medoids Cluster Sizes",
     );
     let hdbscan_latency_histogram = histogram(
-        &hdbscan_avg_cluster_latencies,
+        &const_avg_cluster_latencies,
         min_latency_val,
         max_latency_val,
-        "HDbscan Cluster Latency",
+        "WIP Constrained K-Medoids Cluster Latency",
     );
     let hdbscan_sizes_histogram = histogram(
-        &hdbscan_cluster_counts,
+        &const_cluster_counts,
         min_size_val,
         max_size_val,
-        "HDbscan Cluster Sizes",
+        "WIP Constrained K-Medoids Cluster Sizes",
     );
 
     // create html report
@@ -614,12 +562,11 @@ fn main() {
             </table>
         </div>
         <div style="width:100%; margin:1%;">
-            <h2>HDbscan</h2>
+            <h2>WIP Constrained K-Medoids</h2>
             <p>
-                Num. Clusters: {hdbscan_num_clusters}</br>
-                Num. Node Loss: {hdbscan_loss}</br>
-                Latency Sum: {hdbscan_cluster_latency_sum:.0001}</br>
-                Latency Sum of All Cluster Means: {hdbscan_cluster_latency_mean_sum:.0001}</br>
+                Num. Clusters: {num_clusters}</br>
+                Latency Sum: {const_cluster_latency_sum:.0001}</br>
+                Latency Sum of All Cluster Means: {const_cluster_latency_mean_sum:.0001}</br>
             </p>
             <table>
                 <tr>
@@ -650,7 +597,7 @@ fn main() {
           "#,
         table_rows_baseline.join("\n"),
         table_rows.join("\n"),
-        hdbscan_table_rows.join("\n"),
+        const_table_rows.join("\n"),
     );
 
     std::fs::write("report.html", html).unwrap();
