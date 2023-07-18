@@ -1,11 +1,8 @@
 pub fn mean(data: &[f64]) -> Option<f64> {
-    let sum = data.iter().sum::<f64>() as f64;
+    let sum = data.iter().sum::<f64>();
     let count = data.len();
 
-    match count {
-        positive if positive > 0 => Some(sum / count as f64),
-        _ => None,
-    }
+    (count > 0).then_some(sum / count as f64)
 }
 
 pub fn std_deviation(data: &[f64]) -> Option<f64> {
@@ -14,7 +11,7 @@ pub fn std_deviation(data: &[f64]) -> Option<f64> {
             let variance = data
                 .iter()
                 .map(|value| {
-                    let diff = data_mean - (*value as f64);
+                    let diff = data_mean - (*value);
 
                     diff * diff
                 })

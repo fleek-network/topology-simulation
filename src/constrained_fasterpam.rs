@@ -11,8 +11,8 @@ use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use num_traits::{Signed, Zero};
 use std::{collections::BTreeMap, convert::From};
 
-const MAX: usize = 11;
-const MIN: usize = 9;
+const MAX: usize = 12;
+const MIN: usize = 8;
 
 /// Adapter trait for accessing different types of arrays
 #[allow(clippy::len_without_is_empty)]

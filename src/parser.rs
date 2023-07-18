@@ -31,6 +31,7 @@ struct DSOutput {
     latency: f32,
 }
 
+#[derive(Debug)]
 struct Node {
     map: BTreeMap<u16, f32>,
     data: ServerData,
@@ -51,7 +52,7 @@ fn run<P: AsRef<Path>>(ping: P, servers: P) -> Result<(), Box<dyn Error>> {
     let mut map = BTreeMap::<u16, Node>::new();
     let mut rdr = ReaderBuilder::new().from_path(ping)?;
     for result in rdr.deserialize() {
-        let record: PingData = result?;
+        let mut record: PingData = result?;
         let entry = map.entry(record.source).or_insert(Node {
             map: BTreeMap::new(),
             data: {
@@ -62,6 +63,9 @@ fn run<P: AsRef<Path>>(ping: P, servers: P) -> Result<(), Box<dyn Error>> {
                 }
             },
         });
+        if record.source == record.destination {
+            record.avg = 0.;
+        }
         entry.map.insert(record.destination, record.avg);
     }
 
@@ -70,6 +74,7 @@ fn run<P: AsRef<Path>>(ping: P, servers: P) -> Result<(), Box<dyn Error>> {
     for src in &ids {
         for dst in &ids {
             let src_info = map.get(src).unwrap();
+
             if src_info.map.get(dst).is_none() {
                 // src -> dst unavailable, check dst -> src
                 let dst_info = map.get(dst).unwrap();

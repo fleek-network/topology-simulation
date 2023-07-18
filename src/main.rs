@@ -261,11 +261,12 @@ fn get_random_assignment(num_clusters: usize, num_nodes: usize) -> Vec<usize> {
 fn read_latency_matrix(path: &str) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
     let mut buf = Vec::new();
 
-    let mut rdr = ReaderBuilder::new().from_path(path)?;
+    let mut rdr = ReaderBuilder::new().has_headers(false).from_path(path)?;
     for result in rdr.deserialize() {
         let record: Vec<f32> = result?;
         buf.push(record);
     }
+    println!("{}", buf.len());
     Ok(buf)
 }
 
@@ -463,6 +464,8 @@ fn run() {
 
     /* FASTERPAM */
 
+    println!("running fasterpam");
+
     let (assignment, fasterpam_num_iterations, fasterpam_duration) =
         run_fasterpam(&dissim_matrix, num_clusters);
     scatter_plot(&mut plot_buffer, &data_points, &assignment, "FasterPAM");
@@ -472,6 +475,8 @@ fn run() {
     let table_rows_fasterpam = get_table_rows(&metrics_for_each_cluster_fasterpam);
 
     /* WIP CONSTRAINED FASTERPAM */
+
+    println!("running constrained fasterpam");
 
     let (assignment, c_fasterpam_num_iterations, c_fasterpam_duration) =
         run_constrained_fasterpam(&dissim_matrix, num_clusters);
