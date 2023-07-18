@@ -1,10 +1,10 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use ndarray::{Array, Dim};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use ndarray::Array2;
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::{self, Rng};
 
-fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array<f64, Dim<[usize; 2]>> {
-    let mut points = Array::zeros((num_nodes, 2));
+fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array2<f64> {
+    let mut points = Array2::zeros((num_nodes, 2));
     let cluster_size = num_nodes / num_clusters;
     let mut index = 0;
     for _ in 0..num_clusters {
@@ -23,8 +23,8 @@ fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array<f64, Dim<[u
     points
 }
 
-fn get_distance_matrix(data: &Array<f64, Dim<[usize; 2]>>) -> Array<f64, Dim<[usize; 2]>> {
-    let mut dist = Array::zeros((data.shape()[0], data.shape()[0]));
+fn get_distance_matrix(data: &Array2<f64>) -> Array2<f64> {
+    let mut dist = Array2::zeros((data.shape()[0], data.shape()[0]));
     for i in 0..data.shape()[0] {
         for j in 0..data.shape()[0] {
             if i != j {
@@ -36,21 +36,49 @@ fn get_distance_matrix(data: &Array<f64, Dim<[usize; 2]>>) -> Array<f64, Dim<[us
     dist
 }
 
-fn run_kmedoids(num_nodes: usize, num_clusters: usize) -> (f64, Vec<usize>, usize, usize) {
-    let points = get_random_points(num_nodes, num_clusters);
-    let dis_matrix = get_distance_matrix(&points);
+fn run_fasterpam(dis_matrix: &Array2<f64>, num_clusters: usize) -> (f64, Vec<usize>, usize, usize) {
     let mut meds = kmedoids::random_initialization(
         dis_matrix.shape()[0],
         num_clusters,
         &mut rand::thread_rng(),
     );
-    kmedoids::fasterpam(&dis_matrix, &mut meds, 100)
+    kmedoids::fasterpam(dis_matrix, &mut meds, 100)
+}
+
+fn run_constrained_fasterpam(
+    dis_matrix: &Array2<f64>,
+    num_clusters: usize,
+) -> (f64, Vec<usize>, usize, usize) {
+    let mut meds = kmedoids::random_initialization(
+        dis_matrix.shape()[0],
+        num_clusters,
+        &mut rand::thread_rng(),
+    );
+    kmedoids::fasterpam(dis_matrix, &mut meds, 100)
 }
 
 fn criterion_benchmark(c: &mut Criterion) {
-    c.bench_function("kmedoids 10_000", |b| {
-        b.iter(|| run_kmedoids(black_box(10_000), black_box(10_000 / 8)))
-    });
+    let sizes = vec![1000, 2000, 5000, 10000, 20000];
+
+    for size in sizes {
+        c.bench_with_input(BenchmarkId::new("FasterPAM", size), &size, |b, size| {
+            let clusters = (size + 7) / 8;
+            let points = get_random_points(*size, clusters);
+            let matrix = get_distance_matrix(&points);
+            b.iter(|| run_fasterpam(&matrix, clusters))
+        });
+
+        c.bench_with_input(
+            BenchmarkId::new("Constrained FasterPAM", size),
+            &size,
+            |b, size| {
+                let clusters = (size + 7) / 8;
+                let points = get_random_points(*size, clusters);
+                let matrix = get_distance_matrix(&points);
+                b.iter(|| run_constrained_fasterpam(&matrix, clusters))
+            },
+        );
+    }
 }
 
 criterion_group!(benches, criterion_benchmark);
