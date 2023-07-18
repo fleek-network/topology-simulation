@@ -486,6 +486,21 @@ fn run() {
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_c_fasterpam = get_table_rows(&metrics_for_each_cluster_c_fasterpam);
 
+    println!("running constrained fasterpam for 2 clusters");
+
+    let (assignment, c_fasterpam_2c_num_iterations, c_fasterpam_2c_duration) =
+        run_constrained_fasterpam(&dissim_matrix, 2);
+    scatter_plot(
+        &mut plot_buffer,
+        &data_points,
+        &assignment,
+        "Constrained FasterPAM (2 Clusters)",
+    );
+
+    let (metrics_for_each_cluster_c_fasterpam_2c, overall_cluster_metrics_c_fasterpam_2c) =
+        calculate_cluster_metrics(&assignment, &matrix);
+    let table_rows_c_fasterpam_2c = get_table_rows(&metrics_for_each_cluster_c_fasterpam_2c);
+
     // build histograms
     let baseline_cluster_means = metrics_for_each_cluster_baseline
         .values()
@@ -562,6 +577,32 @@ fn run() {
             .iter()
             .fold(f64::MIN, |a, &b| a.max(b)),
         "Constrained FasterPAM Cluster Sizes",
+    );
+
+    let c_fasterpam_2c_cluster_means = metrics_for_each_cluster_c_fasterpam_2c
+        .values()
+        .map(|metrics| metrics.mean_latency)
+        .collect::<Vec<f64>>();
+    let c_fasterpam_2c_latency_histogram = histogram(
+        &c_fasterpam_2c_cluster_means,
+        overall_cluster_metrics_c_fasterpam_2c.min_latency,
+        overall_cluster_metrics_c_fasterpam_2c.max_latency,
+        "Constrained FasterPAM Cluster Latency (2 Clusters)",
+    );
+
+    let c_fasterpam_2c_cluster_sizes: Vec<f64> = metrics_for_each_cluster_c_fasterpam_2c
+        .values()
+        .map(|metrics| metrics.count as f64)
+        .collect();
+    let c_fasterpam_2c_sizes_histogram = histogram(
+        &c_fasterpam_2c_cluster_sizes,
+        c_fasterpam_2c_cluster_sizes
+            .iter()
+            .fold(f64::MAX, |a, &b| a.min(b)),
+        c_fasterpam_2c_cluster_sizes
+            .iter()
+            .fold(f64::MIN, |a, &b| a.max(b)),
+        "Constrained FasterPAM Cluster Sizes (2 Clusters)",
     );
 
     // create html report
@@ -650,6 +691,29 @@ fn run() {
                 {}
             </table>
         </div>
+
+        <div style="width:100%; margin:1%;">
+            <h2>Constrained FasterPAM (2 Clusters)</h2>
+            <p>
+                Duration: {c_fasterpam_2c_duration:?}</br>
+                Num. Iterations: {}</br>
+                Avg. Latency: {}</br>
+                Std. Dev. Latency: {}</br>
+                Min. Latency: {}</br>
+                Max. Latency: {}</br>
+            </p>
+            <table>
+                <tr>
+                    <th>Cluster</th>
+                    <th>Count</th>
+                    <th>Avg. Latency</th>
+                    <th>Std. Dev. Latency</th>
+                    <th>Min. Latency</th>
+                    <th>Max. Latency</th>
+                </tr>
+                {}
+            </table>
+        </div>
     </div>
 
     <h1>Cluster Latency Histograms</h1>
@@ -657,6 +721,7 @@ fn run() {
         <img src="data:image/png;base64,{random_assignment_latency_histogram}" width="500" />
         <img src="data:image/png;base64,{fasterpam_latency_histogram}" width="500" />
         <img src="data:image/png;base64,{c_fasterpam_latency_histogram}" width="500" />
+        <img src="data:image/png;base64,{c_fasterpam_2c_latency_histogram}" width="500" />
     </div>
 
     <h1>Cluster Sizes Histograms</h1>
@@ -664,6 +729,7 @@ fn run() {
         <img src="data:image/png;base64,{random_assignment_sizes_histogram}" width="500" />
         <img src="data:image/png;base64,{fasterpam_sizes_histogram}" width="500" />
         <img src="data:image/png;base64,{c_fasterpam_sizes_histogram}" width="500" />
+        <img src="data:image/png;base64,{c_fasterpam_2c_sizes_histogram}" width="500" />
     </div>
 <body>
 </html>
@@ -685,6 +751,12 @@ fn run() {
         overall_cluster_metrics_c_fasterpam.min_latency,
         overall_cluster_metrics_c_fasterpam.max_latency,
         table_rows_c_fasterpam,
+        c_fasterpam_2c_num_iterations,
+        overall_cluster_metrics_c_fasterpam_2c.mean_latency,
+        overall_cluster_metrics_c_fasterpam_2c.standard_dev_latency,
+        overall_cluster_metrics_c_fasterpam_2c.min_latency,
+        overall_cluster_metrics_c_fasterpam_2c.max_latency,
+        table_rows_c_fasterpam_2c,
     );
 
     std::fs::write("report.html", html).unwrap();
