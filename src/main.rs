@@ -58,7 +58,7 @@ impl From<Vec<f64>> for ClusterMetrics {
             standard_dev_latency,
             min_latency,
             max_latency,
-            count: value.len(),
+            count: ((value.len() + 1) as f64).sqrt() as usize,
         }
     }
 }
@@ -295,10 +295,12 @@ fn calculate_cluster_metrics(
             continue;
         }
         let mut cluster_latency_values = Vec::new();
-        for (i, &src) in node_indices.iter().enumerate() {
-            for &dst in node_indices[i + 1..].iter() {
-                let latency = latency_matrix[src][dst] as f64;
-                cluster_latency_values.push(latency);
+        for &src in node_indices.iter() {
+            for &dst in node_indices.iter() {
+                if src != dst {
+                    let latency = latency_matrix[src][dst] as f64;
+                    cluster_latency_values.push(latency);
+                }
             }
         }
         let cluster_metrics: ClusterMetrics = cluster_latency_values.into();
