@@ -11,6 +11,9 @@ use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use num_traits::{Signed, Zero};
 use std::{collections::BTreeMap, convert::From};
 
+const MAX: usize = 11;
+const MIN: usize = 9;
+
 /// Adapter trait for accessing different types of arrays
 #[allow(clippy::len_without_is_empty)]
 pub trait ArrayAdapter<N> {
@@ -193,15 +196,14 @@ where
 /// println!("Loss is: {}", loss);
 /// ```
 #[allow(dead_code)]
-pub fn fasterpam<M, N, L>(
+pub fn fasterpam<M, L>(
     mat: &M,
     med: &mut Vec<usize>,
     maxiter: usize,
 ) -> (L, Vec<usize>, usize, usize)
 where
-    N: Zero + PartialOrd + Copy,
-    L: AddAssign + Signed + Zero + PartialOrd + Copy + From<N>,
-    M: ArrayAdapter<N>,
+    L: AddAssign + Signed + Zero + PartialOrd + Copy + From<f64>,
+    M: ArrayAdapter<f64>,
 {
     let (n, k) = (mat.len(), med.len());
     if k == 1 {
@@ -214,27 +216,36 @@ where
     let mut removal_loss = vec![L::zero(); k];
     update_removal_loss(&data, &mut removal_loss);
     let (mut lastswap, mut n_swaps, mut iter) = (n, 0, 0);
+    let (mut assi, mut cost) = build_solve_graph(mat, med);
     while iter < maxiter {
         iter += 1;
         let swaps_before = n_swaps;
 
         // for each node
-        for j in 0..n {
-            if j == lastswap {
+        for node_idx in 0..n {
+            if node_idx == lastswap {
                 break;
             }
-            if j == med[data[j].near.i as usize] {
+            if node_idx == med[data[node_idx].near.i as usize] {
                 continue; // This already is a medoid
             }
             // for each medoid
-            let (change, b) = find_best_swap(mat, &removal_loss, &data, j);
-            if change >= L::zero() {
-                continue; // No improvement
+            let (_change, medoid_idx) = find_best_swap(mat, &removal_loss, &data, node_idx);
+            let mut tmp = med.clone();
+            tmp[medoid_idx] = node_idx;
+            let (new_assi, new_cost) = build_solve_graph(mat, med);
+            if new_cost < cost {
+                // the swap is better
+                (assi, cost) = (new_assi, new_cost);
             }
+            /*if change >= L::zero() {
+                continue; // No improvement
+            }*/
+
             n_swaps += 1;
-            lastswap = j;
+            lastswap = node_idx;
             // perform the swap
-            let newloss = do_swap(mat, med, &mut data, b, j);
+            let newloss = do_swap(mat, med, &mut data, medoid_idx, node_idx);
             if newloss >= loss {
                 break; // Probably numerically unstable now.
             }
@@ -245,7 +256,8 @@ where
             break; // converged
         }
     }
-    let assi = data.iter().map(|x| x.near.i as usize).collect();
+    // let assi = data.iter().map(|x| x.near.i as usize).collect();
+
     (loss, assi, iter, n_swaps)
 }
 
@@ -325,7 +337,7 @@ where
 /// - medoid indeces do not have a role (hop used for max constraint)
 /// - medoid' indeces are demand nodes
 /// - one artificial demand node to ensure total demand = total supply
-fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> Vec<usize> {
+fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> (Vec<usize>, i32) {
     // - Edges
     //   - source -> [supply nodes]
     //     - capacity: 1
@@ -347,8 +359,7 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> Vec<us
     //     - cost: 0
 
     const ARTIFICIAL_IDX: usize = usize::MAX;
-    const MAX: usize = 2;
-    const MIN: usize = 10;
+
     let total = mat.len();
     let k = medoids.len();
     let n_nodes = total - k;
@@ -362,7 +373,7 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> Vec<us
 
             for &j in medoids {
                 // supply node -> medoid
-                let cost = (mat.get(i, j) * 1000.) as i32;
+                let cost = (mat.get(i, j) * 100000.) as i32;
                 graph.add_edge(i, j, Capacity(1), Cost(cost));
             }
         }
@@ -390,7 +401,7 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> Vec<us
     );
 
     // solve graph
-    let (_total_cost, paths) = graph.mcmf();
+    let (total_cost, paths) = graph.mcmf();
     let mut mappings: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
 
     for path in paths {
@@ -405,13 +416,30 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> Vec<us
 
     println!("{mappings:?}");
 
-    let mut labels = vec![0; total];
+    let mut labels = vec![999; total];
     for (cluster, nodes) in mappings.values().enumerate() {
         for node in nodes {
             labels[*node] = cluster;
         }
     }
-    labels
+
+    // TEMPORARY: Find any missing nodes, and assign them to their closest cluster.
+    // TODO: Figure out why some nodes aren't getting a path
+    for (i, assignment) in labels.iter_mut().enumerate() {
+        if assignment == &999 {
+            let mut best = 999;
+            let mut diff = f64::MAX;
+            for (j, &medoid) in medoids.iter().enumerate() {
+                let diff2 = mat.get(i, medoid);
+                if diff2 < diff {
+                    best = j;
+                    diff = diff2;
+                }
+            }
+            *assignment = best;
+        }
+    }
+    (labels, total_cost)
 }
 
 /// Update the loss when removing each medoid
@@ -461,8 +489,8 @@ pub(crate) fn do_swap<M, N, L>(
     mat: &M,
     med: &mut Vec<usize>,
     data: &mut [Rec<N>],
-    b: usize,
-    j: usize,
+    idx: usize,
+    new: usize,
 ) -> L
 where
     N: Zero + PartialOrd + Copy,
@@ -470,38 +498,38 @@ where
     M: ArrayAdapter<N>,
 {
     let n = mat.len();
-    assert!(b < med.len(), "invalid medoid number");
-    assert!(j < n, "invalid object number");
-    med[b] = j;
+    assert!(idx < med.len(), "invalid medoid number");
+    assert!(new < n, "invalid object number");
+    med[idx] = new;
     data.iter_mut()
         .enumerate()
         .map(|(o, reco)| {
-            if o == j {
-                if reco.near.i != b as u32 {
+            if o == new {
+                if reco.near.i != idx as u32 {
                     reco.seco = reco.near;
                 }
-                reco.near = DistancePair::new(b as u32, N::zero());
+                reco.near = DistancePair::new(idx as u32, N::zero());
                 return L::zero();
             }
-            let djo = mat.get(j, o);
+            let djo = mat.get(new, o);
             // Nearest medoid is gone:
-            if reco.near.i == b as u32 {
+            if reco.near.i == idx as u32 {
                 if djo < reco.seco.d {
-                    reco.near = DistancePair::new(b as u32, djo);
+                    reco.near = DistancePair::new(idx as u32, djo);
                 } else {
                     reco.near = reco.seco;
-                    reco.seco = update_second_nearest(mat, med, reco.near.i as usize, b, o, djo);
+                    reco.seco = update_second_nearest(mat, med, reco.near.i as usize, idx, o, djo);
                 }
             } else {
                 // nearest not removed
                 if djo < reco.near.d {
                     reco.seco = reco.near;
-                    reco.near = DistancePair::new(b as u32, djo);
+                    reco.near = DistancePair::new(idx as u32, djo);
                 } else if djo < reco.seco.d {
-                    reco.seco = DistancePair::new(b as u32, djo);
-                } else if reco.seco.i == b as u32 {
+                    reco.seco = DistancePair::new(idx as u32, djo);
+                } else if reco.seco.i == idx as u32 {
                     // second nearest was replaced
-                    reco.seco = update_second_nearest(mat, med, reco.near.i as usize, b, o, djo);
+                    reco.seco = update_second_nearest(mat, med, reco.near.i as usize, idx, o, djo);
                 }
             }
             L::from(reco.near.d)

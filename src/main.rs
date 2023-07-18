@@ -1,7 +1,10 @@
-mod ckmedoids;
+mod constrained_fasterpam;
 mod constrained_k_medoids;
 
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    time::{Duration, Instant},
+};
 
 use base64::Engine;
 use constrained_k_medoids::ConstrainedKMedoids;
@@ -16,6 +19,11 @@ use std::error::Error;
 use plotters::prelude::*;
 
 const FONT: &str = "IBM Plex Mono, monospace";
+
+fn main() {
+    toy_example();
+    run();
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct ServerData {
@@ -153,31 +161,50 @@ fn scatter_plot(
         .unwrap();
 }
 
-fn run_kmedoids(
+fn run_fasterpam(
     dis_matrix: &Array<f64, Dim<[usize; 2]>>,
     num_clusters: usize,
-) -> (f64, Vec<usize>, usize, usize) {
+) -> (Vec<usize>, usize, Duration) {
     let mut meds = kmedoids::random_initialization(
         dis_matrix.shape()[0],
         num_clusters,
         &mut rand::thread_rng(),
     );
-    kmedoids::fasterpam(dis_matrix, &mut meds, 100)
+    let instant = Instant::now();
+    let (_, labels, iterations, _): (f64, _, _, _) =
+        kmedoids::fasterpam(dis_matrix, &mut meds, 100);
+    (labels, iterations, instant.elapsed())
 }
 
-fn run_constrained_kmedoids(
-    dis_matrix: Array<f64, Dim<[usize; 2]>>,
+fn run_constrained_fasterpam(
+    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
     num_clusters: usize,
-) -> (Vec<usize>, usize) {
+) -> (Vec<usize>, usize, Duration) {
     let mut meds = kmedoids::random_initialization(
         dis_matrix.shape()[0],
         num_clusters,
         &mut rand::thread_rng(),
     );
+    let instant = Instant::now();
+    let (_, labels, iterations, _): (f64, _, _, _) =
+        constrained_fasterpam::fasterpam(dis_matrix, &mut meds, 100);
+    (labels, iterations, instant.elapsed())
+}
 
-    let mut alg = ConstrainedKMedoids::new(dis_matrix, &meds, 6, 10);
-    let labels = alg.cpam();
-    (labels, num_clusters)
+fn run_constrained_alternating(
+    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
+    num_clusters: usize,
+) -> (Vec<usize>, usize, Duration) {
+    let instant = Instant::now();
+    let mut alg = ConstrainedKMedoids::with_rand_medoids(
+        dis_matrix,
+        num_clusters,
+        4,
+        12,
+        &mut rand::thread_rng(),
+    );
+    let (labels, iterations) = alg.alternating();
+    (labels, iterations, instant.elapsed())
 }
 
 fn get_random_assignment(num_clusters: usize, num_nodes: usize) -> Vec<usize> {
@@ -223,7 +250,7 @@ fn calculate_cluster_metrics(
     let mut mean_inner_cluster_latencies = Vec::new();
     let mut cluster_node_count = Vec::new();
     let mut inner_cluster_latency_sums = 0.0;
-    let mut inner_cluster_latency_mean_sums = 0.0;
+    let mut inner_cluster_latency_mean = 0.0;
     for node_indices in clusters.values() {
         let mut latency_sum = 0.0;
         let mut count = 0;
@@ -241,14 +268,14 @@ fn calculate_cluster_metrics(
             }
         }
         mean_inner_cluster_latencies.push(latency_sum / count as f64);
-        inner_cluster_latency_mean_sums += latency_sum / count as f64;
+        inner_cluster_latency_mean += latency_sum / count as f64;
         cluster_node_count.push(node_indices.len() as f64);
     }
     (
         mean_inner_cluster_latencies,
         cluster_node_count,
         inner_cluster_latency_sums,
-        inner_cluster_latency_mean_sums,
+        inner_cluster_latency_mean / clusters.len() as f64,
     )
 }
 
@@ -302,13 +329,29 @@ fn toy_example() {
     );
 
     let dis_matrix = get_distance_matrix(&data);
-    let (assignment, _) = run_constrained_kmedoids(dis_matrix.clone(), 3);
 
+    let (assignment, _, _) = run_fasterpam(&dis_matrix, 3);
+    for (i, &a) in assignment.iter().enumerate() {
+        if a == 999 {
+            println!("missing: {i}");
+        }
+    }
+    scatter_plot(&mut plot_buffer, &data, &assignment, "FasterPAM");
+
+    let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix, 3);
     scatter_plot(
         &mut plot_buffer,
         &data,
         &assignment,
-        "Constrained K-Medoids Clustering (WIP)",
+        "WIP Constrained FasterPAM",
+    );
+
+    let (assignment, _, _) = run_constrained_alternating(&dis_matrix, 3);
+    scatter_plot(
+        &mut plot_buffer,
+        &data,
+        &assignment,
+        "WIP Constrained Alternating",
     );
 
     let html = format!(
@@ -338,9 +381,7 @@ fn toy_example() {
     std::fs::write("toy_report.html", html).unwrap();
 }
 
-fn main() {
-    //toy_example();
-
+fn run() {
     let matrix = read_latency_matrix("matrix.csv").unwrap();
     let metadata = read_metadata("metadata.csv").unwrap();
 
@@ -390,7 +431,7 @@ fn main() {
         avg_cluster_latencies_baseline,
         cluster_counts_baseline,
         cluster_latency_sum_baseline,
-        cluster_latency_mean_sum_baseline,
+        cluster_latency_mean_baseline,
     ) = calculate_cluster_metrics(&random_assignment, &matrix);
 
     let mut table_rows_baseline = vec![];
@@ -410,60 +451,70 @@ fn main() {
         max_size_val = max_size_val.max(*v);
     });
 
-    /* K-MEDOIDS */
+    /* FASTERPAM */
 
-    let (_, assignment, num_iterations, _) = run_kmedoids(&dissim_matrix, num_clusters);
-    scatter_plot(&mut plot_buffer, &data_points, &assignment, "K-Medoids");
+    let (assignment, fasterpam_num_iterations, fasterpam_duration) =
+        run_fasterpam(&dissim_matrix, num_clusters);
+    scatter_plot(&mut plot_buffer, &data_points, &assignment, "FasterPAM");
 
-    let (avg_cluster_latencies, cluster_counts, cluster_latency_sum, cluster_latency_mean_sum) =
-        calculate_cluster_metrics(&assignment, &matrix);
+    let (
+        fasterpam_avg_cluster_latencies,
+        fasterpam_cluster_counts,
+        fasterpam_cluster_latency_sum,
+        fasterpam_cluster_latency_mean,
+    ) = calculate_cluster_metrics(&assignment, &matrix);
 
-    let mut table_rows = vec![];
-    for i in 0..avg_cluster_latencies.len() {
-        table_rows.push(format!(
+    let mut fasterpam_table_rows = vec![];
+    for i in 0..fasterpam_avg_cluster_latencies.len() {
+        fasterpam_table_rows.push(format!(
             "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
-            cluster_counts[i], avg_cluster_latencies[i]
+            fasterpam_cluster_counts[i], fasterpam_avg_cluster_latencies[i]
         ));
     }
-    avg_cluster_latencies.iter().for_each(|v| {
+    fasterpam_avg_cluster_latencies.iter().for_each(|v| {
         min_latency_val = min_latency_val.min(*v);
         max_latency_val = max_latency_val.max(*v);
     });
-    cluster_counts.iter().for_each(|v| {
+    fasterpam_cluster_counts.iter().for_each(|v| {
         min_size_val = min_size_val.min(*v);
         max_size_val = max_size_val.max(*v);
     });
 
-    /* WIP CONSTRAINED K-MEDOIDS */
+    /* WIP CONSTRAINED FASTERPAM */
 
-    let (assignment, num_iterations) =
-        run_constrained_kmedoids(dissim_matrix.clone(), num_clusters);
+    let (assignment, c_fasterpam_num_iterations, c_fasterpam_duration) =
+        run_constrained_fasterpam(&dissim_matrix, num_clusters);
     scatter_plot(
         &mut plot_buffer,
         &data_points,
         &assignment,
-        "WIP Constrained K-Medoids",
+        "Constrained FasterPAM",
     );
+    for (i, &a) in assignment.iter().enumerate() {
+        if a == 999 {
+            println!("missing: {i}");
+        }
+    }
 
     let (
-        const_avg_cluster_latencies,
-        const_cluster_counts,
-        const_cluster_latency_sum,
-        const_cluster_latency_mean_sum,
+        c_fasterpam_avg_cluster_latencies,
+        c_fasterpam_cluster_counts,
+        c_fasterpam_cluster_latency_sum,
+        c_fasterpam_cluster_latency_mean,
     ) = calculate_cluster_metrics(&assignment, &matrix);
 
-    let mut const_table_rows = vec![];
-    for i in 0..const_avg_cluster_latencies.len() {
-        const_table_rows.push(format!(
+    let mut c_fasterpam_table_rows = vec![];
+    for i in 0..c_fasterpam_avg_cluster_latencies.len() {
+        c_fasterpam_table_rows.push(format!(
             "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
-            const_cluster_counts[i], const_avg_cluster_latencies[i]
+            c_fasterpam_cluster_counts[i], c_fasterpam_avg_cluster_latencies[i]
         ));
     }
-    const_avg_cluster_latencies.iter().for_each(|v| {
+    c_fasterpam_avg_cluster_latencies.iter().for_each(|v| {
         min_latency_val = min_latency_val.min(*v);
         max_latency_val = max_latency_val.max(*v);
     });
-    const_cluster_counts.iter().for_each(|v| {
+    c_fasterpam_cluster_counts.iter().for_each(|v| {
         min_size_val = min_size_val.min(*v);
         max_size_val = max_size_val.max(*v);
     });
@@ -481,29 +532,29 @@ fn main() {
         max_size_val,
         "Random Assignment Cluster Sizes",
     );
-    let kmedoids_latency_histogram = histogram(
-        &avg_cluster_latencies,
+    let fasterpam_latency_histogram = histogram(
+        &fasterpam_avg_cluster_latencies,
         min_latency_val,
         max_latency_val,
-        "K-Medoids Cluster Latency",
+        "FasterPAM Cluster Latency",
     );
-    let kmedoids_sizes_histogram = histogram(
-        &cluster_counts,
+    let fasterpam_sizes_histogram = histogram(
+        &fasterpam_cluster_counts,
         min_size_val,
         max_size_val,
-        "K-Medoids Cluster Sizes",
+        "FasterPAM Cluster Sizes",
     );
-    let hdbscan_latency_histogram = histogram(
-        &const_avg_cluster_latencies,
+    let c_fasterpam_latency_histogram = histogram(
+        &c_fasterpam_avg_cluster_latencies,
         min_latency_val,
         max_latency_val,
-        "WIP Constrained K-Medoids Cluster Latency",
+        "Constrained FasterPAM Cluster Latency",
     );
-    let hdbscan_sizes_histogram = histogram(
-        &const_cluster_counts,
+    let c_fasterpam_sizes_histogram = histogram(
+        &c_fasterpam_cluster_counts,
         min_size_val,
         max_size_val,
-        "WIP Constrained K-Medoids Cluster Sizes",
+        "Constrained FasterPAM Cluster Sizes",
     );
 
     // create html report
@@ -533,7 +584,7 @@ fn main() {
             <p>
                 Num. Clusters: {num_clusters}</br>
                 Latency Sum: {cluster_latency_sum_baseline:.0001}</br>
-                Latency Sum of All Cluster Means: {cluster_latency_mean_sum_baseline:.0001}</br>
+                Avg. Latency of All Clusters: {cluster_latency_mean_baseline:.0001}</br>
             </p>
             <table>
                 <tr>
@@ -545,12 +596,13 @@ fn main() {
             </table>
         </div>
         <div style="width:100%; margin:1%;">
-            <h2>K-Medoids</h2>
+            <h2>FasterPAM</h2>
             <p>
+                Duration: {fasterpam_duration:?}</br>
                 Num. Clusters: {num_clusters}</br>
-                Num. Iterations: {num_iterations}</br>
-                Latency Sum: {cluster_latency_sum:.0001}</br>
-                Latency Sum of All Cluster Means: {cluster_latency_mean_sum:.0001}</br>
+                Num. Iterations: {fasterpam_num_iterations}</br>
+                Latency Sum: {fasterpam_cluster_latency_sum:.0001}</br>
+                Avg. Latency of All Clusters: {fasterpam_cluster_latency_mean:.0001}</br>
             </p>
             <table>
                 <tr>
@@ -562,11 +614,13 @@ fn main() {
             </table>
         </div>
         <div style="width:100%; margin:1%;">
-            <h2>WIP Constrained K-Medoids</h2>
+            <h2>WIP Constrained FasterPAM</h2>
             <p>
+                Duration: {c_fasterpam_duration:?}</br>
                 Num. Clusters: {num_clusters}</br>
-                Latency Sum: {const_cluster_latency_sum:.0001}</br>
-                Latency Sum of All Cluster Means: {const_cluster_latency_mean_sum:.0001}</br>
+                Num. Iterations: {c_fasterpam_num_iterations}</br>
+                Latency Sum: {c_fasterpam_cluster_latency_sum:.0001}</br>
+                Avg. Latency of All Clusters: {c_fasterpam_cluster_latency_mean:.0001}</br>
             </p>
             <table>
                 <tr>
@@ -581,23 +635,23 @@ fn main() {
 
     <h1>Cluster Latency Histograms</h1>
     <div style="display: flex;">
-        <img src="data:image/png;base64,{random_assignment_latency_histogram}" width="33%" />
-        <img src="data:image/png;base64,{kmedoids_latency_histogram}" width="33%" />
-        <img src="data:image/png;base64,{hdbscan_latency_histogram}" width="33%" />
+        <img src="data:image/png;base64,{random_assignment_latency_histogram}" width="500" />
+        <img src="data:image/png;base64,{fasterpam_latency_histogram}" width="500" />
+        <img src="data:image/png;base64,{c_fasterpam_latency_histogram}" width="500" />
     </div>
 
     <h1>Cluster Sizes Histograms</h1>
     <div style="display: flex;">
-        <img src="data:image/png;base64,{random_assignment_sizes_histogram}" width="33%" />
-        <img src="data:image/png;base64,{kmedoids_sizes_histogram}" width="33%" />
-        <img src="data:image/png;base64,{hdbscan_sizes_histogram}" width="33%" />
+        <img src="data:image/png;base64,{random_assignment_sizes_histogram}" width="500" />
+        <img src="data:image/png;base64,{fasterpam_sizes_histogram}" width="500" />
+        <img src="data:image/png;base64,{c_fasterpam_sizes_histogram}" width="500" />
     </div>
 <body>
 </html>
           "#,
         table_rows_baseline.join("\n"),
-        table_rows.join("\n"),
-        const_table_rows.join("\n"),
+        fasterpam_table_rows.join("\n"),
+        c_fasterpam_table_rows.join("\n"),
     );
 
     std::fs::write("report.html", html).unwrap();
