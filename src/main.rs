@@ -63,7 +63,7 @@ impl From<Vec<f64>> for ClusterMetrics {
     }
 }
 
-fn get_table_rows(cluster_metrics: &HashMap<usize, ClusterMetrics>) -> String {
+fn get_table_rows(cluster_metrics: &BTreeMap<usize, ClusterMetrics>) -> String {
     let mut table_rows = vec![];
     for (cluster_idx, metrics) in cluster_metrics.iter() {
         table_rows.push(format!(
@@ -282,14 +282,14 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
 fn calculate_cluster_metrics(
     assignment: &[usize],
     latency_matrix: &[Vec<f32>],
-) -> (HashMap<usize, ClusterMetrics>, ClusterMetrics) {
+) -> (BTreeMap<usize, ClusterMetrics>, ClusterMetrics) {
     let mut clusters = BTreeMap::new();
     for (i, cluster_index) in assignment.iter().enumerate() {
         clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
     }
     let mut latency_values = Vec::new();
 
-    let mut cluster_metrics_map = HashMap::new();
+    let mut cluster_metrics_map = BTreeMap::new();
     for (&cluster_idx, node_indices) in clusters.iter() {
         if node_indices.is_empty() {
             continue;
