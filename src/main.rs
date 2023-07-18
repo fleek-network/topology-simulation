@@ -266,7 +266,7 @@ fn read_latency_matrix(path: &str) -> Result<Vec<Vec<f32>>, Box<dyn Error>> {
         let record: Vec<f32> = result?;
         buf.push(record);
     }
-    println!("{}", buf.len());
+
     Ok(buf)
 }
 
@@ -366,11 +366,6 @@ fn toy_example() {
     let dis_matrix = get_distance_matrix(&data);
 
     let (assignment, _, _) = run_fasterpam(&dis_matrix, 3);
-    for (i, &a) in assignment.iter().enumerate() {
-        if a == 999 {
-            println!("missing: {i}");
-        }
-    }
     scatter_plot(&mut plot_buffer, &data, &assignment, "FasterPAM");
 
     let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix, 3);
@@ -486,11 +481,7 @@ fn run() {
         &assignment,
         "Constrained FasterPAM",
     );
-    for (i, &a) in assignment.iter().enumerate() {
-        if a == 999 {
-            println!("missing: {i}");
-        }
-    }
+
     let (metrics_for_each_cluster_c_fasterpam, overall_cluster_metrics_c_fasterpam) =
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_c_fasterpam = get_table_rows(&metrics_for_each_cluster_c_fasterpam);
@@ -598,7 +589,6 @@ fn run() {
         <div style="width:100%; margin:1%;">
             <h2>Random Assignment</h2>
             <p>
-                Num. Clusters: {}</br>
                 Avg. Latency: {}</br>
                 Std. Dev. Latency: {}</br>
                 Min. Latency: {}</br>
@@ -620,7 +610,7 @@ fn run() {
             <h2>FasterPAM</h2>
             <p>
                 Duration: {fasterpam_duration:?}</br>
-                Num. Clusters: {}</br>
+                Num. Iterations: {}</br>
                 Avg. Latency: {}</br>
                 Std. Dev. Latency: {}</br>
                 Min. Latency: {}</br>
@@ -639,10 +629,10 @@ fn run() {
             </table>
         </div>
         <div style="width:100%; margin:1%;">
-            <h2>Constrained FasterPAM</h2>
+            <h2>Constrained FasterPAM (targetting min 9 and max 11)</h2>
             <p>
                 Duration: {c_fasterpam_duration:?}</br>
-                Num. Clusters: {}</br>
+                Num. Iterations: {}</br>
                 Avg. Latency: {}</br>
                 Std. Dev. Latency: {}</br>
                 Min. Latency: {}</br>
@@ -678,19 +668,18 @@ fn run() {
 <body>
 </html>
           "#,
-        overall_cluster_metrics_baseline.count,
         overall_cluster_metrics_baseline.mean_latency,
         overall_cluster_metrics_baseline.standard_dev_latency,
         overall_cluster_metrics_baseline.min_latency,
         overall_cluster_metrics_baseline.max_latency,
         table_rows_baseline,
-        overall_cluster_metrics_fasterpam.count,
+        fasterpam_num_iterations,
         overall_cluster_metrics_fasterpam.mean_latency,
         overall_cluster_metrics_fasterpam.standard_dev_latency,
         overall_cluster_metrics_fasterpam.min_latency,
         overall_cluster_metrics_fasterpam.max_latency,
         table_rows_fasterpam,
-        overall_cluster_metrics_c_fasterpam.count,
+        c_fasterpam_num_iterations,
         overall_cluster_metrics_c_fasterpam.mean_latency,
         overall_cluster_metrics_c_fasterpam.standard_dev_latency,
         overall_cluster_metrics_c_fasterpam.min_latency,

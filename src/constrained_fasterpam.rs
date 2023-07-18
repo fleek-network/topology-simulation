@@ -414,8 +414,6 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> (Vec<u
         ids.push(node);
     }
 
-    println!("{mappings:?}");
-
     let mut labels = vec![999; total];
     for (cluster, nodes) in mappings.values().enumerate() {
         for node in nodes {
