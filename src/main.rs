@@ -58,7 +58,7 @@ impl From<Vec<f64>> for ClusterMetrics {
             standard_dev_latency,
             min_latency,
             max_latency,
-            count: ((value.len() + 1) as f64).sqrt() as usize,
+            count: ((value.len() + 1) as f64).sqrt().round() as usize,
         }
     }
 }
