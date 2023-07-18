@@ -1,10 +1,8 @@
 mod constrained_fasterpam;
 mod constrained_k_medoids;
 
-use std::{
-    collections::BTreeMap,
-    time::{Duration, Instant},
-};
+use std::collections::{BTreeMap, HashMap};
+use std::time::{Duration, Instant};
 
 use base64::Engine;
 use constrained_k_medoids::ConstrainedKMedoids;
@@ -17,6 +15,8 @@ use csv::ReaderBuilder;
 use std::error::Error;
 
 use plotters::prelude::*;
+
+mod stats;
 
 const FONT: &str = "IBM Plex Mono, monospace";
 
@@ -32,6 +32,46 @@ struct ServerData {
     country: String,
     latitude: f32,
     longitude: f32,
+}
+
+#[derive(Clone, Debug)]
+struct ClusterMetrics {
+    mean_latency: f64,
+    standard_dev_latency: f64,
+    min_latency: f64,
+    max_latency: f64,
+    count: usize,
+}
+
+impl From<Vec<f64>> for ClusterMetrics {
+    fn from(value: Vec<f64>) -> Self {
+        let mean_latency = stats::mean(&value).unwrap();
+        let standard_dev_latency = stats::std_deviation(&value).unwrap();
+        let mut min_latency = f64::MAX;
+        let mut max_latency = f64::MIN;
+        value.iter().for_each(|v| {
+            min_latency = min_latency.min(*v);
+            max_latency = max_latency.max(*v);
+        });
+        Self {
+            mean_latency,
+            standard_dev_latency,
+            min_latency,
+            max_latency,
+            count: value.len(),
+        }
+    }
+}
+
+fn get_table_rows(cluster_metrics: &HashMap<usize, ClusterMetrics>) -> String {
+    let mut table_rows = vec![];
+    for (cluster_idx, metrics) in cluster_metrics.iter() {
+        table_rows.push(format!(
+            "<tr><td>{cluster_idx}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+            metrics.count, metrics.mean_latency, metrics.standard_dev_latency, metrics.min_latency, metrics.max_latency
+        ));
+    }
+    table_rows.join("\n")
 }
 
 fn histogram(values: &[f64], min_val: f64, max_val: f64, title: &str) -> String {
@@ -242,41 +282,33 @@ fn read_metadata(path: &str) -> Result<BTreeMap<u16, ServerData>, Box<dyn Error>
 fn calculate_cluster_metrics(
     assignment: &[usize],
     latency_matrix: &[Vec<f32>],
-) -> (Vec<f64>, Vec<f64>, f64, f64) {
+) -> (HashMap<usize, ClusterMetrics>, ClusterMetrics) {
     let mut clusters = BTreeMap::new();
     for (i, cluster_index) in assignment.iter().enumerate() {
         clusters.entry(cluster_index).or_insert(Vec::new()).push(i);
     }
-    let mut mean_inner_cluster_latencies = Vec::new();
-    let mut cluster_node_count = Vec::new();
-    let mut inner_cluster_latency_sums = 0.0;
-    let mut inner_cluster_latency_mean = 0.0;
-    for node_indices in clusters.values() {
-        let mut latency_sum = 0.0;
-        let mut count = 0;
+    let mut latency_values = Vec::new();
 
+    let mut cluster_metrics_map = HashMap::new();
+    for (&cluster_idx, node_indices) in clusters.iter() {
         if node_indices.is_empty() {
             continue;
         }
-
+        let mut cluster_latency_values = Vec::new();
         for (i, &src) in node_indices.iter().enumerate() {
             for &dst in node_indices[i + 1..].iter() {
-                let sum = latency_matrix[src][dst] as f64;
-                count += 1;
-                latency_sum += sum;
-                inner_cluster_latency_sums += sum;
+                let latency = latency_matrix[src][dst] as f64;
+                cluster_latency_values.push(latency);
             }
         }
-        mean_inner_cluster_latencies.push(latency_sum / count as f64);
-        inner_cluster_latency_mean += latency_sum / count as f64;
-        cluster_node_count.push(node_indices.len() as f64);
+        let cluster_metrics: ClusterMetrics = cluster_latency_values.into();
+        cluster_metrics_map.insert(*cluster_idx, cluster_metrics.clone());
+
+        latency_values.push(cluster_metrics.mean_latency);
     }
-    (
-        mean_inner_cluster_latencies,
-        cluster_node_count,
-        inner_cluster_latency_sums,
-        inner_cluster_latency_mean / clusters.len() as f64,
-    )
+    let cluster_metrics: ClusterMetrics = latency_values.into();
+
+    (cluster_metrics_map, cluster_metrics)
 }
 
 fn sample_cluster(
@@ -412,10 +444,6 @@ fn run() {
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 10;
     let num_clusters = num_servers / optimal_cluster_size;
-    let mut min_latency_val = f64::MAX;
-    let mut max_latency_val = f64::MIN;
-    let mut min_size_val = f64::MAX;
-    let mut max_size_val = f64::MIN;
 
     /* BASELINE: RANDOM ASSIGNMENT */
 
@@ -427,29 +455,9 @@ fn run() {
         &random_assignment,
         "Random Assignment",
     );
-    let (
-        avg_cluster_latencies_baseline,
-        cluster_counts_baseline,
-        cluster_latency_sum_baseline,
-        cluster_latency_mean_baseline,
-    ) = calculate_cluster_metrics(&random_assignment, &matrix);
-
-    let mut table_rows_baseline = vec![];
-    for i in 0..avg_cluster_latencies_baseline.len() {
-        table_rows_baseline.push(format!(
-            "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
-            cluster_counts_baseline[i], avg_cluster_latencies_baseline[i]
-        ));
-    }
-
-    avg_cluster_latencies_baseline.iter().for_each(|v| {
-        min_latency_val = min_latency_val.min(*v);
-        max_latency_val = max_latency_val.max(*v);
-    });
-    cluster_counts_baseline.iter().for_each(|v| {
-        min_size_val = min_size_val.min(*v);
-        max_size_val = max_size_val.max(*v);
-    });
+    let (metrics_for_each_cluster_baseline, overall_cluster_metrics_baseline) =
+        calculate_cluster_metrics(&random_assignment, &matrix);
+    let table_rows_baseline = get_table_rows(&metrics_for_each_cluster_baseline);
 
     /* FASTERPAM */
 
@@ -457,28 +465,9 @@ fn run() {
         run_fasterpam(&dissim_matrix, num_clusters);
     scatter_plot(&mut plot_buffer, &data_points, &assignment, "FasterPAM");
 
-    let (
-        fasterpam_avg_cluster_latencies,
-        fasterpam_cluster_counts,
-        fasterpam_cluster_latency_sum,
-        fasterpam_cluster_latency_mean,
-    ) = calculate_cluster_metrics(&assignment, &matrix);
-
-    let mut fasterpam_table_rows = vec![];
-    for i in 0..fasterpam_avg_cluster_latencies.len() {
-        fasterpam_table_rows.push(format!(
-            "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
-            fasterpam_cluster_counts[i], fasterpam_avg_cluster_latencies[i]
-        ));
-    }
-    fasterpam_avg_cluster_latencies.iter().for_each(|v| {
-        min_latency_val = min_latency_val.min(*v);
-        max_latency_val = max_latency_val.max(*v);
-    });
-    fasterpam_cluster_counts.iter().for_each(|v| {
-        min_size_val = min_size_val.min(*v);
-        max_size_val = max_size_val.max(*v);
-    });
+    let (metrics_for_each_cluster_fasterpam, overall_cluster_metrics_fasterpam) =
+        calculate_cluster_metrics(&assignment, &matrix);
+    let table_rows_fasterpam = get_table_rows(&metrics_for_each_cluster_fasterpam);
 
     /* WIP CONSTRAINED FASTERPAM */
 
@@ -495,65 +484,85 @@ fn run() {
             println!("missing: {i}");
         }
     }
-
-    let (
-        c_fasterpam_avg_cluster_latencies,
-        c_fasterpam_cluster_counts,
-        c_fasterpam_cluster_latency_sum,
-        c_fasterpam_cluster_latency_mean,
-    ) = calculate_cluster_metrics(&assignment, &matrix);
-
-    let mut c_fasterpam_table_rows = vec![];
-    for i in 0..c_fasterpam_avg_cluster_latencies.len() {
-        c_fasterpam_table_rows.push(format!(
-            "<tr><td>{i}</td><td>{}</td><td>{}</td></tr>",
-            c_fasterpam_cluster_counts[i], c_fasterpam_avg_cluster_latencies[i]
-        ));
-    }
-    c_fasterpam_avg_cluster_latencies.iter().for_each(|v| {
-        min_latency_val = min_latency_val.min(*v);
-        max_latency_val = max_latency_val.max(*v);
-    });
-    c_fasterpam_cluster_counts.iter().for_each(|v| {
-        min_size_val = min_size_val.min(*v);
-        max_size_val = max_size_val.max(*v);
-    });
+    let (metrics_for_each_cluster_c_fasterpam, overall_cluster_metrics_c_fasterpam) =
+        calculate_cluster_metrics(&assignment, &matrix);
+    let table_rows_c_fasterpam = get_table_rows(&metrics_for_each_cluster_c_fasterpam);
 
     // build histograms
+    let baseline_cluster_means = metrics_for_each_cluster_baseline
+        .values()
+        .map(|metrics| metrics.mean_latency)
+        .collect::<Vec<f64>>();
     let random_assignment_latency_histogram = histogram(
-        &avg_cluster_latencies_baseline,
-        min_latency_val,
-        max_latency_val,
+        &baseline_cluster_means,
+        overall_cluster_metrics_baseline.min_latency,
+        overall_cluster_metrics_baseline.max_latency,
         "Random Assignment Cluster Latency",
     );
+    let baseline_cluster_sizes: Vec<f64> = metrics_for_each_cluster_baseline
+        .values()
+        .map(|metrics| metrics.count as f64)
+        .collect();
     let random_assignment_sizes_histogram = histogram(
-        &cluster_counts_baseline,
-        min_size_val,
-        max_size_val,
+        &baseline_cluster_sizes,
+        baseline_cluster_sizes
+            .iter()
+            .fold(f64::MAX, |a, &b| a.min(b)),
+        baseline_cluster_sizes
+            .iter()
+            .fold(f64::MIN, |a, &b| a.max(b)),
         "Random Assignment Cluster Sizes",
     );
+
+    let fasterpam_cluster_means = metrics_for_each_cluster_fasterpam
+        .values()
+        .map(|metrics| metrics.mean_latency)
+        .collect::<Vec<f64>>();
     let fasterpam_latency_histogram = histogram(
-        &fasterpam_avg_cluster_latencies,
-        min_latency_val,
-        max_latency_val,
+        &fasterpam_cluster_means,
+        overall_cluster_metrics_fasterpam.min_latency,
+        overall_cluster_metrics_fasterpam.max_latency,
         "FasterPAM Cluster Latency",
     );
+
+    let fasterpam_cluster_sizes: Vec<f64> = metrics_for_each_cluster_fasterpam
+        .values()
+        .map(|metrics| metrics.count as f64)
+        .collect();
     let fasterpam_sizes_histogram = histogram(
-        &fasterpam_cluster_counts,
-        min_size_val,
-        max_size_val,
+        &fasterpam_cluster_sizes,
+        fasterpam_cluster_sizes
+            .iter()
+            .fold(f64::MAX, |a, &b| a.min(b)),
+        fasterpam_cluster_sizes
+            .iter()
+            .fold(f64::MIN, |a, &b| a.max(b)),
         "FasterPAM Cluster Sizes",
     );
+
+    let c_fasterpam_cluster_means = metrics_for_each_cluster_c_fasterpam
+        .values()
+        .map(|metrics| metrics.mean_latency)
+        .collect::<Vec<f64>>();
     let c_fasterpam_latency_histogram = histogram(
-        &c_fasterpam_avg_cluster_latencies,
-        min_latency_val,
-        max_latency_val,
+        &c_fasterpam_cluster_means,
+        overall_cluster_metrics_c_fasterpam.min_latency,
+        overall_cluster_metrics_c_fasterpam.max_latency,
         "Constrained FasterPAM Cluster Latency",
     );
+
+    let c_fasterpam_cluster_sizes: Vec<f64> = metrics_for_each_cluster_c_fasterpam
+        .values()
+        .map(|metrics| metrics.count as f64)
+        .collect();
     let c_fasterpam_sizes_histogram = histogram(
-        &c_fasterpam_cluster_counts,
-        min_size_val,
-        max_size_val,
+        &c_fasterpam_cluster_sizes,
+        c_fasterpam_cluster_sizes
+            .iter()
+            .fold(f64::MAX, |a, &b| a.min(b)),
+        c_fasterpam_cluster_sizes
+            .iter()
+            .fold(f64::MIN, |a, &b| a.max(b)),
         "Constrained FasterPAM Cluster Sizes",
     );
 
@@ -582,15 +591,20 @@ fn run() {
         <div style="width:100%; margin:1%;">
             <h2>Random Assignment</h2>
             <p>
-                Num. Clusters: {num_clusters}</br>
-                Latency Sum: {cluster_latency_sum_baseline:.0001}</br>
-                Avg. Latency of All Clusters: {cluster_latency_mean_baseline:.0001}</br>
+                Num. Clusters: {}</br>
+                Avg. Latency: {}</br>
+                Std. Dev. Latency: {}</br>
+                Min. Latency: {}</br>
+                Max. Latency: {}</br>
             </p>
             <table>
                 <tr>
                     <th>Cluster</th>
                     <th>Count</th>
                     <th>Avg. Latency</th>
+                    <th>Std. Dev. Latency</th>
+                    <th>Min. Latency</th>
+                    <th>Max. Latency</th>
                 </tr>
                 {}
             </table>
@@ -598,35 +612,41 @@ fn run() {
         <div style="width:100%; margin:1%;">
             <h2>FasterPAM</h2>
             <p>
-                Duration: {fasterpam_duration:?}</br>
-                Num. Clusters: {num_clusters}</br>
-                Num. Iterations: {fasterpam_num_iterations}</br>
-                Latency Sum: {fasterpam_cluster_latency_sum:.0001}</br>
-                Avg. Latency of All Clusters: {fasterpam_cluster_latency_mean:.0001}</br>
+                Num. Clusters: {}</br>
+                Avg. Latency: {}</br>
+                Std. Dev. Latency: {}</br>
+                Min. Latency: {}</br>
+                Max. Latency: {}</br>
             </p>
             <table>
                 <tr>
                     <th>Cluster</th>
                     <th>Count</th>
                     <th>Avg. Latency</th>
+                    <th>Std. Dev. Latency</th>
+                    <th>Min. Latency</th>
+                    <th>Max. Latency</th>
                 </tr>
                 {}
             </table>
         </div>
         <div style="width:100%; margin:1%;">
-            <h2>WIP Constrained FasterPAM</h2>
+            <h2>Constrained FasterPAM</h2>
             <p>
-                Duration: {c_fasterpam_duration:?}</br>
-                Num. Clusters: {num_clusters}</br>
-                Num. Iterations: {c_fasterpam_num_iterations}</br>
-                Latency Sum: {c_fasterpam_cluster_latency_sum:.0001}</br>
-                Avg. Latency of All Clusters: {c_fasterpam_cluster_latency_mean:.0001}</br>
+                Num. Clusters: {}</br>
+                Avg. Latency: {}</br>
+                Std. Dev. Latency: {}</br>
+                Min. Latency: {}</br>
+                Max. Latency: {}</br>
             </p>
             <table>
                 <tr>
                     <th>Cluster</th>
                     <th>Count</th>
                     <th>Avg. Latency</th>
+                    <th>Std. Dev. Latency</th>
+                    <th>Min. Latency</th>
+                    <th>Max. Latency</th>
                 </tr>
                 {}
             </table>
@@ -649,9 +669,24 @@ fn run() {
 <body>
 </html>
           "#,
-        table_rows_baseline.join("\n"),
-        fasterpam_table_rows.join("\n"),
-        c_fasterpam_table_rows.join("\n"),
+        overall_cluster_metrics_baseline.count,
+        overall_cluster_metrics_baseline.mean_latency,
+        overall_cluster_metrics_baseline.standard_dev_latency,
+        overall_cluster_metrics_baseline.min_latency,
+        overall_cluster_metrics_baseline.max_latency,
+        table_rows_baseline,
+        overall_cluster_metrics_fasterpam.count,
+        overall_cluster_metrics_fasterpam.mean_latency,
+        overall_cluster_metrics_fasterpam.standard_dev_latency,
+        overall_cluster_metrics_fasterpam.min_latency,
+        overall_cluster_metrics_fasterpam.max_latency,
+        table_rows_fasterpam,
+        overall_cluster_metrics_c_fasterpam.count,
+        overall_cluster_metrics_c_fasterpam.mean_latency,
+        overall_cluster_metrics_c_fasterpam.standard_dev_latency,
+        overall_cluster_metrics_c_fasterpam.min_latency,
+        overall_cluster_metrics_c_fasterpam.max_latency,
+        table_rows_c_fasterpam,
     );
 
     std::fs::write("report.html", html).unwrap();
