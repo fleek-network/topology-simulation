@@ -612,6 +612,7 @@ fn run() {
         <div style="width:100%; margin:1%;">
             <h2>FasterPAM</h2>
             <p>
+                Duration: {fasterpam_duration:?}</br>
                 Num. Clusters: {}</br>
                 Avg. Latency: {}</br>
                 Std. Dev. Latency: {}</br>
@@ -633,6 +634,7 @@ fn run() {
         <div style="width:100%; margin:1%;">
             <h2>Constrained FasterPAM</h2>
             <p>
+                Duration: {c_fasterpam_duration:?}</br>
                 Num. Clusters: {}</br>
                 Avg. Latency: {}</br>
                 Std. Dev. Latency: {}</br>
