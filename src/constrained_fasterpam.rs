@@ -11,9 +11,6 @@ use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use num_traits::{Signed, Zero};
 use std::{collections::BTreeMap, convert::From};
 
-const MAX: usize = 12;
-const MIN: usize = 8;
-
 /// Adapter trait for accessing different types of arrays
 #[allow(clippy::len_without_is_empty)]
 pub trait ArrayAdapter<N> {
@@ -200,6 +197,8 @@ pub fn fasterpam<M, L>(
     mat: &M,
     med: &mut Vec<usize>,
     maxiter: usize,
+    min: usize,
+    max: usize,
 ) -> (L, Vec<usize>, usize, usize)
 where
     L: AddAssign + Signed + Zero + PartialOrd + Copy + From<f64>,
@@ -216,7 +215,7 @@ where
     let mut removal_loss = vec![L::zero(); k];
     update_removal_loss(&data, &mut removal_loss);
     let (mut lastswap, mut n_swaps, mut iter) = (n, 0, 0);
-    let (mut assi, mut cost) = build_solve_graph(mat, med);
+    let (mut assi, mut cost) = build_solve_graph(mat, med, min, max);
     while iter < maxiter {
         iter += 1;
         let swaps_before = n_swaps;
@@ -233,7 +232,7 @@ where
             let (_change, medoid_idx) = find_best_swap(mat, &removal_loss, &data, node_idx);
             let mut tmp = med.clone();
             tmp[medoid_idx] = node_idx;
-            let (new_assi, new_cost) = build_solve_graph(mat, med);
+            let (new_assi, new_cost) = build_solve_graph(mat, med, min, max);
             if new_cost < cost {
                 // the swap is better
                 (assi, cost) = (new_assi, new_cost);
@@ -337,7 +336,12 @@ where
 /// - medoid indeces do not have a role (hop used for max constraint)
 /// - medoid' indeces are demand nodes
 /// - one artificial demand node to ensure total demand = total supply
-fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> (Vec<usize>, i32) {
+fn build_solve_graph<M: ArrayAdapter<f64>>(
+    mat: &M,
+    medoids: &[usize],
+    min: usize,
+    max: usize,
+) -> (Vec<usize>, i32) {
     // - Edges
     //   - source -> [supply nodes]
     //     - capacity: 1
@@ -383,20 +387,20 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(mat: &M, medoids: &[usize]) -> (Vec<u
         let prime_idx = usize::MAX - prime_offset - 1;
 
         // medoid -> medoid'
-        graph.add_edge(idx, prime_idx, Capacity(MAX as i32), Cost(0));
+        graph.add_edge(idx, prime_idx, Capacity(max as i32), Cost(0));
 
         // medoid' -> artificial
         graph.add_edge(prime_idx, ARTIFICIAL_IDX, Capacity(n_nodes as i32), Cost(0));
 
         // medoid' -> sink
-        graph.add_edge(prime_idx, Vertex::Sink, Capacity(MIN as i32), Cost(0));
+        graph.add_edge(prime_idx, Vertex::Sink, Capacity(min as i32), Cost(0));
     }
 
     // artificial node -> sink
     graph.add_edge(
         ARTIFICIAL_IDX,
         Vertex::Sink,
-        Capacity((n_nodes - k * MIN) as i32),
+        Capacity((n_nodes - k * min) as i32),
         Cost(0),
     );
 
