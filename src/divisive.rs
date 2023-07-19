@@ -1,0 +1,129 @@
+use std::{fmt::Display, time::Instant};
+
+use ndarray::Array2;
+use rand::Rng;
+use serde::{Deserialize, Serialize};
+
+use crate::constrained_fasterpam;
+
+/// A divisive hierarchy strategy where we split the nodes into clusters of two, until the size
+/// reaches approximately target_n (+- target_n / 2)
+#[derive(Debug, Deserialize, Serialize)]
+pub enum DivisiveHierarchy {
+    Group {
+        id: String,
+        children: Vec<DivisiveHierarchy>,
+    },
+    Cluster {
+        id: String,
+        nodes: Vec<usize>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct HierarchyPath(Vec<u8>);
+
+impl Display for HierarchyPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let strings: Vec<_> = self.0.iter().map(|v| v.to_string()).collect();
+        if strings.is_empty() {
+            write!(f, "root")
+        } else {
+            write!(f, "{}", strings.join("."))
+        }
+    }
+}
+
+impl DivisiveHierarchy {
+    /// Create a new divisive hierarchy using constrained fasterpam and selecting first
+    pub fn new(dissim_matrix: &Array2<f64>, indeces: &[usize], target_n: usize) -> Self {
+        let time = Instant::now();
+        let path = HierarchyPath(vec![]);
+        let mut rng = rand::thread_rng();
+        let indeces: Vec<_> = indeces.iter().map(|&i| (i, i)).collect();
+
+        let res = Self::new_inner(&mut rng, dissim_matrix, &indeces, target_n, &path, false);
+
+        eprintln!("finished hierarchy in {:?}", time.elapsed());
+        res
+    }
+
+    fn new_inner<R: Rng>(
+        rng: &mut R,
+        dissim_matrix: &Array2<f64>,
+        indeces: &[(usize, usize)],
+        target_n: usize,
+        current_path: &HierarchyPath,
+        last: bool,
+    ) -> Self {
+        let depth = current_path.0.len();
+        if last {
+            // current list of nodes are within the target size
+            eprintln!("stopped at depth {depth} with {} nodes", indeces.len());
+            Self::Cluster {
+                id: current_path.to_string(),
+                nodes: indeces.iter().map(|i| i.0).collect(),
+            }
+        } else {
+            // Split the current indeces in half using constrained fasterpam with random init
+            let mut medoids = rand::seq::index::sample(rng, dissim_matrix.nrows(), 2).into_vec();
+            let time = Instant::now();
+            let half = indeces.len() / 2;
+            let min = half - 1;
+            let max = half + 1;
+            let (_, assignments, _, _) = constrained_fasterpam::fasterpam::<_, f64>(
+                dissim_matrix,
+                &mut medoids,
+                100,
+                min,
+                max,
+            );
+            eprintln!(
+                "split {} nodes at depth {depth} in {:?}",
+                indeces.len(),
+                time.elapsed()
+            );
+
+            let mut clusters = vec![vec![], vec![]];
+            for (node, &assignment) in assignments.iter().enumerate() {
+                clusters[assignment].push(node);
+            }
+
+            // TODO: compute pairings between the clusters using a hungarian problem
+
+            // Recurse new children for each cluster
+            let last = clusters[0].len() < target_n || clusters[1].len() < target_n;
+            let mut children = Vec::with_capacity(2);
+            for (path_index, new_indeces) in clusters.iter().enumerate() {
+                let nodes: Vec<_> = new_indeces
+                    .iter()
+                    .map(|&i| {
+                        let mut node = indeces[i];
+                        node.1 = i;
+                        node
+                    })
+                    .collect();
+
+                // build new matrix from medoids
+                let mut child_matrix = Array2::zeros((nodes.len(), nodes.len()));
+                for (i, &iidx) in new_indeces.iter().enumerate() {
+                    for (j, &jidx) in new_indeces[i + 1..].iter().enumerate() {
+                        let dissim = dissim_matrix[(iidx, jidx)];
+                        child_matrix[(i, j)] = dissim;
+                        child_matrix[(j, i)] = dissim;
+                    }
+                }
+                // pass new matrix and indeces
+                let mut path = current_path.clone();
+                path.0.push(path_index as u8);
+                let child = Self::new_inner(rng, &child_matrix, &nodes, target_n, &path, last);
+                children.push(child);
+            }
+
+            Self::Group {
+                id: current_path.to_string(),
+                children,
+            }
+        }
+    }
+}
