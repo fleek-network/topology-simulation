@@ -362,45 +362,54 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(
     //     - capacity:  n_supply - n_medoids * size_min
     //     - cost: 0
 
-    const ARTIFICIAL_IDX: usize = usize::MAX;
-
     let total = mat.len();
     let k = medoids.len();
-    let n_nodes = total - k;
+    let artificial_index = total + 2 * k;
 
     let mut graph = GraphBuilder::new();
 
-    for i in 0..mat.len() {
+    // Node Indeces: [0, len(x) - 1]
+    for i in 0..total {
         if !medoids.contains(&i) {
             // source -> supply node
             graph.add_edge(Vertex::Source, i, Capacity(1), Cost(0));
 
-            for &j in medoids {
-                // supply node -> medoid
-                let cost = (mat.get(i, j) * 100000.) as i32;
-                graph.add_edge(i, j, Capacity(1), Cost(cost));
+            if let Some(offset) = medoids.iter().position(|v| v == &i) {
+                // compute cluster index
+                let cluster = total + offset;
+                graph.add_edge(i, cluster, Capacity(1), Cost(0));
+            } else {
+                for (offset, &j) in medoids.iter().enumerate() {
+                    // supply node -> medoid
+                    let cost = (mat.get(i, j) * 100000.) as i32;
+                    graph.add_edge(i, total + offset, Capacity(1), Cost(cost));
+                }
             }
         }
     }
 
-    for (prime_offset, &idx) in medoids.iter().enumerate() {
-        let prime_idx = usize::MAX - prime_offset - 1;
+    // Cluster Indeces: [len(X), len(X) + len(C) - 1]
+    // Cluster' Indeces: [len(X) + len(C), len(X) + 2 * len(C) - 1]
+    for offset in 0..k {
+        let index = total + offset;
+        let prime_idx = index + k;
 
         // medoid -> medoid'
-        graph.add_edge(idx, prime_idx, Capacity(max as i32), Cost(0));
+        graph.add_edge(index, prime_idx, Capacity(max as i32), Cost(0));
 
         // medoid' -> artificial
-        graph.add_edge(prime_idx, ARTIFICIAL_IDX, Capacity(n_nodes as i32), Cost(0));
+        graph.add_edge(prime_idx, artificial_index, Capacity(total as i32), Cost(0));
 
         // medoid' -> sink
         graph.add_edge(prime_idx, Vertex::Sink, Capacity(min as i32), Cost(0));
     }
 
+    // Artificial Index: len(X) + 2 * len(C)
     // artificial node -> sink
     graph.add_edge(
-        ARTIFICIAL_IDX,
+        artificial_index,
         Vertex::Sink,
-        Capacity((n_nodes - k * min) as i32),
+        Capacity((total - k * min) as i32),
         Cost(0),
     );
 
@@ -414,7 +423,7 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(
         let node = verts[1].as_option().unwrap();
         let medoid = verts[2].as_option().unwrap();
 
-        let ids = mappings.entry(medoid).or_insert(vec![medoid]);
+        let ids = mappings.entry(medoid).or_default();
         ids.push(node);
     }
 
