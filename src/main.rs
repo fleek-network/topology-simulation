@@ -502,7 +502,12 @@ fn run() {
     eprintln!("running divisive constrained fasterpam");
 
     let (assignment, dcfpam_duration) = run_dcfpam(&dissim_matrix, 20);
-    scatter_plot(&mut plot_buffer, &data_points, &assignment, "");
+    scatter_plot(
+        &mut plot_buffer,
+        &data_points,
+        &assignment,
+        "Divisive Constrained FasterPAM",
+    );
 
     let (metrics_for_each_cluster_dcfpam, overall_cluster_metrics_dcfpam) =
         calculate_cluster_metrics(&assignment, &matrix);
