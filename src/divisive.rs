@@ -12,6 +12,7 @@ use crate::constrained_fasterpam;
 pub enum DivisiveHierarchy {
     Group {
         id: String,
+        total: usize,
         children: Vec<DivisiveHierarchy>,
     },
     Cluster {
@@ -36,12 +37,12 @@ impl Display for HierarchyPath {
 
 impl DivisiveHierarchy {
     /// Create a new divisive hierarchy using constrained fasterpam and selecting first
-    pub fn new(dissim_matrix: &Array2<f64>, indeces: &[usize], target_n: usize) -> Self {
+    pub fn new(dissim_matrix: &Array2<f64>, target_n: usize) -> Self {
         let time = Instant::now();
         let path = HierarchyPath(vec![]);
         let mut rng = rand::thread_rng();
-        let indeces: Vec<_> = indeces.iter().map(|&i| (i, i)).collect();
 
+        let indeces: Vec<_> = (0..dissim_matrix.nrows()).map(|i| (i, i)).collect();
         let res = Self::new_inner(&mut rng, dissim_matrix, &indeces, target_n, &path, false);
 
         eprintln!("finished hierarchy in {:?}", time.elapsed());
@@ -122,8 +123,71 @@ impl DivisiveHierarchy {
 
             Self::Group {
                 id: current_path.to_string(),
+                total: indeces.len(),
                 children,
             }
         }
+    }
+
+    /// Get the total number of nodes in the hierarchy
+    pub fn n_nodes(&self) -> usize {
+        match self {
+            Self::Group { total, .. } => *total,
+            Self::Cluster { nodes, .. } => nodes.len(),
+        }
+    }
+
+    /// Collect assignments for each node in the hierarchy, returning path strings
+    pub fn assignments_paths(&self) -> Vec<String> {
+        fn inner(assignments: &mut [String], item: &DivisiveHierarchy) {
+            match item {
+                DivisiveHierarchy::Group { children, .. } => {
+                    for child in children {
+                        inner(assignments, child);
+                    }
+                }
+                DivisiveHierarchy::Cluster { id, nodes, .. } => {
+                    for &node in nodes {
+                        assignments[node] = id.clone();
+                    }
+                }
+            }
+        }
+
+        let total = match self {
+            Self::Group { total, .. } => *total,
+            Self::Cluster { nodes, .. } => nodes.len(),
+        };
+        let mut assignments = vec!["".to_string(); total];
+        inner(&mut assignments, self);
+
+        assignments
+    }
+
+    /// Collect assignments for each node in the hierarchy, returning cluster indexes
+    pub fn assignments(&self) -> Vec<usize> {
+        fn inner(counter: &mut usize, assignments: &mut [usize], item: &DivisiveHierarchy) {
+            match item {
+                DivisiveHierarchy::Group { children, .. } => {
+                    for child in children {
+                        inner(counter, assignments, child);
+                    }
+                }
+                DivisiveHierarchy::Cluster { nodes, .. } => {
+                    *counter += 1;
+                    for &node in nodes {
+                        assignments[node] = *counter;
+                    }
+                }
+            }
+        }
+
+        let total = self.n_nodes();
+        let mut assignments = vec![999; total];
+        let mut counter = 0;
+
+        inner(&mut counter, &mut assignments, self);
+
+        assignments
     }
 }
