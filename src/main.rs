@@ -2,7 +2,7 @@ mod constrained_fasterpam;
 mod constrained_k_medoids;
 mod divisive;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use base64::Engine;
@@ -13,12 +13,14 @@ use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+use crate::bottom_up::NodeHierarchy;
 use csv::ReaderBuilder;
 use serde_json::to_string_pretty;
 use std::error::Error;
 
 use plotters::prelude::*;
 
+mod bottom_up;
 mod stats;
 
 const FONT: &str = "IBM Plex Mono, monospace";
@@ -116,6 +118,14 @@ fn histogram(values: &[f64], min_val: f64, max_val: f64, title: &str) -> String 
 
     let file = std::fs::read("/tmp/histogram.png").expect("failed to read temp file");
     base64::engine::general_purpose::STANDARD.encode(file)
+}
+
+fn scatter_plot_hierarchy(
+    buffer: &mut String,
+    hierarchy: NodeHierarchy,
+    data: &Array<f64, Dim<[usize; 2]>>,
+    title: &str,
+) {
 }
 
 fn scatter_plot(
@@ -527,6 +537,19 @@ fn run() {
     let (metrics_for_each_cluster_c_fasterpam_2c, overall_cluster_metrics_c_fasterpam_2c) =
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_c_fasterpam_2c = get_table_rows(&metrics_for_each_cluster_c_fasterpam_2c);
+
+    /* DIVISIVE CONSTRAINED FASTERPAM */
+    let node_hierarchy = bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 8, 12, 100);
+    let hierarchy_assignments = node_hierarchy.get_assignments();
+
+    for (depth, assignment) in hierarchy_assignments {
+        scatter_plot(
+            &mut plot_buffer,
+            &data_points,
+            &assignment,
+            &format!("Bottom Up Constrained Fastpam - Level {}", depth),
+        );
+    }
 
     // build histograms
     let baseline_cluster_means = metrics_for_each_cluster_baseline

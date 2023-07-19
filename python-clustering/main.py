@@ -96,21 +96,21 @@ def get_table_rows(cluster_metrics, decimals=2):
 
 
 def run_toy_example():
-    cluster1 = np.random.multivariate_normal(mean=[1,1], cov=np.eye(2), size=10)
-    cluster2 = np.random.multivariate_normal(mean=[2,2], cov=np.eye(2), size=10)
-    cluster3 = np.random.multivariate_normal(mean=[4,2], cov=np.eye(2), size=10)
+    cluster1 = np.random.multivariate_normal(mean=[1,1], cov=np.eye(2), size=3)
+    cluster2 = np.random.multivariate_normal(mean=[2,2], cov=np.eye(2), size=3)
+    cluster3 = np.random.multivariate_normal(mean=[4,2], cov=np.eye(2), size=4)
     
     data = np.concatenate((cluster1, cluster2, cluster3), axis=0)
     
     num_nodes = data.shape[0]
-    num_clusters = num_nodes // 8
+    num_clusters = num_nodes // 2
 
     svg_plot_before = scatter_plot(data, np.zeros(data.shape[0], dtype='int'), title='Before Clustering')
 
     clf = KMeansConstrained(
         n_clusters=num_clusters,
         size_min=2,
-        size_max=10,
+        size_max=2,
         random_state=0
     )
     clf.fit_predict(data)
@@ -147,6 +147,7 @@ def run_toy_example():
 
 
 def run():
+    run_toy_example()
     matrix = pd.read_csv('matrix.csv', header=None)
     metadata = pd.read_csv('metadata.csv')
     data_points = np.stack((metadata['longitude'].to_numpy(), metadata['latitude'].to_numpy()), axis=1)
