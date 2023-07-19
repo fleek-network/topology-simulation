@@ -1,17 +1,20 @@
 mod constrained_fasterpam;
 mod constrained_k_medoids;
+mod divisive;
 
 use std::collections::{BTreeMap, HashMap};
 use std::time::{Duration, Instant};
 
 use base64::Engine;
 use constrained_k_medoids::ConstrainedKMedoids;
+use divisive::DivisiveHierarchy;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use csv::ReaderBuilder;
+use serde_json::to_string_pretty;
 use std::error::Error;
 
 use plotters::prelude::*;
@@ -45,8 +48,8 @@ struct ClusterMetrics {
 
 impl From<Vec<f64>> for ClusterMetrics {
     fn from(value: Vec<f64>) -> Self {
-        let mean_latency = stats::mean(&value).unwrap();
-        let standard_dev_latency = stats::std_deviation(&value).unwrap();
+        let mean_latency = stats::mean(&value).unwrap_or(f64::NAN);
+        let standard_dev_latency = stats::std_deviation(&value).unwrap_or(f64::NAN);
         let mut min_latency = f64::MAX;
         let mut max_latency = f64::MIN;
         value.iter().for_each(|v| {
@@ -227,7 +230,7 @@ fn run_constrained_fasterpam(
     );
     let instant = Instant::now();
     let (_, labels, iterations, _): (f64, _, _, _) =
-        constrained_fasterpam::fasterpam(dis_matrix, &mut meds, 100);
+        constrained_fasterpam::fasterpam(dis_matrix, &mut meds, 100, 8, 12);
     (labels, iterations, instant.elapsed())
 }
 
@@ -443,6 +446,10 @@ fn run() {
     let optimal_cluster_size = 10;
     let num_clusters = num_servers / optimal_cluster_size;
 
+    let indeces: Vec<_> = (0..num_servers).collect();
+    let hierarchy = DivisiveHierarchy::new(&dissim_matrix, &indeces, 10);
+    println!("{}", to_string_pretty(&hierarchy).unwrap());
+
     /* BASELINE: RANDOM ASSIGNMENT */
 
     // establish baseline by random assignment
@@ -459,7 +466,7 @@ fn run() {
 
     /* FASTERPAM */
 
-    println!("running fasterpam");
+    eprintln!("running fasterpam");
 
     let (assignment, fasterpam_num_iterations, fasterpam_duration) =
         run_fasterpam(&dissim_matrix, num_clusters);
@@ -471,7 +478,7 @@ fn run() {
 
     /* WIP CONSTRAINED FASTERPAM */
 
-    println!("running constrained fasterpam");
+    eprintln!("running constrained fasterpam");
 
     let (assignment, c_fasterpam_num_iterations, c_fasterpam_duration) =
         run_constrained_fasterpam(&dissim_matrix, num_clusters);
