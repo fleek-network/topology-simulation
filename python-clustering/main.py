@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import io
 
+from spectral_equal_size_clustering import SpectralEqualSizeClustering
 from k_means_constrained import KMeansConstrained
 from sklearn.manifold import MDS
 import sys
@@ -194,12 +195,23 @@ def run():
     table_rows_kmedoids_constr = get_table_rows(cluster_metrics_kmedoids_constr)
 
     # Run Balanced K-Means
-    balanced_kmeans = EqualGroupsKMeans(n_clusters=num_clusters)
-    balanced_kmeans.fit(data_points_mds)
+    spectral_clustering = SpectralEqualSizeClustering(nclusters=num_clusters,
+                                                      nneighbors=int(matrix.shape[0] * 0.1),
+                                                      equity_fraction=1.0,
+                                                      seed=1234)
 
-    svg_plot_balanced_kmeans = scatter_plot(data_points, balanced_kmeans.labels_, title='Balanced K-Means')
-    cluster_metrics_balanced_kmeans, latency_sum_of_all_clusters_balanced_kmeans, latency_mean_of_all_clusters_balanced_kmeans = calculate_cluster_metrics(balanced_kmeans.labels_, matrix)
-    table_rows_balanced_kmeans = get_table_rows(cluster_metrics_balanced_kmeans)
+    sc_labels = spectral_clustering.fit(matrix)
+
+    svg_plot_balanced_sc = scatter_plot(data_points, sc_labels, title='Equal Size Spectral Clustering')
+    cluster_metrics_balanced_sc, latency_sum_of_all_clusters_balanced_sc, latency_mean_of_all_clusters_balanced_sc = calculate_cluster_metrics(sc_labels, matrix)
+    table_rows_balanced_sc = get_table_rows(cluster_metrics_balanced_sc)
+
+    #balanced_kmeans = EqualGroupsKMeans(n_clusters=num_clusters)
+    #balanced_kmeans.fit(data_points_mds)
+
+    #svg_plot_balanced_kmeans = scatter_plot(data_points, balanced_kmeans.labels_, title='Balanced K-Means')
+    #cluster_metrics_balanced_kmeans, latency_sum_of_all_clusters_balanced_kmeans, latency_mean_of_all_clusters_balanced_kmeans = calculate_cluster_metrics(balanced_kmeans.labels_, matrix)
+    #table_rows_balanced_kmeans = get_table_rows(cluster_metrics_balanced_kmeans)
 
 
     html = f"""<!DOCTYPE html>
@@ -226,7 +238,7 @@ def run():
         <hr>
         {svg_plot_kmedoids_constr}
         <hr>
-        {svg_plot_balanced_kmeans}
+        {svg_plot_balanced_sc}
         <p><h2>Metrics</h2></p>
         <div style="display: flex; gap: 20px;">
             <div>
@@ -284,10 +296,10 @@ def run():
             </div>
 
             <div>
-                <h3>Balanced K-Means</h3>
-                Num. Clusters: {len(cluster_metrics_balanced_kmeans)}</br>
-                Sum of Cluster Latency Means: {np.round(latency_mean_of_all_clusters_balanced_kmeans, 2)}</br>
-                Sum of Cluster Latency Sums: {np.round(latency_sum_of_all_clusters_balanced_kmeans, 2)}</br>
+                <h3>Balanced Spectral Clustering</h3>
+                Num. Clusters: {len(cluster_metrics_balanced_sc)}</br>
+                Sum of Cluster Latency Means: {np.round(latency_mean_of_all_clusters_balanced_sc, 2)}</br>
+                Sum of Cluster Latency Sums: {np.round(latency_sum_of_all_clusters_balanced_sc, 2)}</br>
                 <table>
                     <tr>
                         <th>Cluster</th>
@@ -297,7 +309,7 @@ def run():
                         <th>Min. Latency</th>
                         <th>Max. Latency</th>
                     </tr>
-                    {table_rows_balanced_kmeans}
+                    {table_rows_balanced_sc}
                 </table>
             </div>
         </div>
