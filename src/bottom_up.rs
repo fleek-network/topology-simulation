@@ -403,6 +403,41 @@ mod tests {
     }
 
     #[test]
+    fn test_get_assignments_map() {
+        let leaf_cluster_0 = [0, 3, 6];
+        let leaf_cluster_1 = [1, 4, 5];
+        let leaf_cluster_2 = [2, 7, 8];
+        let leaf_cluster_3 = [9, 10, 11];
+        let target_cluster1 = vec![leaf_cluster_0, leaf_cluster_2];
+        let target_cluster2 = vec![leaf_cluster_1, leaf_cluster_3];
+        let _target_cluster = vec![target_cluster1, target_cluster2];
+
+        let leaf_assignment = vec![0, 1, 2, 0, 1, 1, 0, 2, 2, 3, 3, 3];
+        let mut leaf_hierarchy = NodeHierarchy::new_leaf_hierarchy(&leaf_assignment);
+
+        // cluster_0 : [cluster_0, cluster_2]
+        // cluster_1 : [cluster_1, cluster_3]
+        let assignment = vec![0, 1, 0, 1];
+        let node_hierarchy = NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &assignment);
+        let assignment_map = node_hierarchy.get_assignments_map();
+        assert_eq!(
+            assignment_map.get(&0).unwrap().get(&0).unwrap(),
+            &[0, 3, 6, 2, 7, 8]
+        );
+        assert_eq!(
+            assignment_map.get(&0).unwrap().get(&1).unwrap(),
+            &[1, 4, 5, 9, 10, 11]
+        );
+        assert_eq!(assignment_map.get(&1).unwrap().get(&0).unwrap(), &[0, 3, 6]);
+        assert_eq!(assignment_map.get(&1).unwrap().get(&1).unwrap(), &[1, 4, 5]);
+        assert_eq!(assignment_map.get(&1).unwrap().get(&2).unwrap(), &[2, 7, 8]);
+        assert_eq!(
+            assignment_map.get(&1).unwrap().get(&3).unwrap(),
+            &[9, 10, 11]
+        );
+    }
+
+    #[test]
     fn test_new_hierarchy() {
         let leaf_cluster_0 = [0, 3, 6];
         let leaf_cluster_1 = [1, 4, 5];
