@@ -481,7 +481,7 @@ fn run() {
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_fasterpam = get_table_rows(&metrics_for_each_cluster_fasterpam);
 
-    /* WIP CONSTRAINED FASTERPAM */
+    /* CONSTRAINED FASTERPAM */
 
     eprintln!("running constrained fasterpam");
 
@@ -515,7 +515,7 @@ fn run() {
     plot_buffer.push_str(r#"</div>"#);
 
     let (metrics_for_each_cluster_dcfpam, overall_cluster_metrics_dcfpam) =
-        calculate_cluster_metrics(&assignment, &matrix);
+        calculate_cluster_metrics(hierarchy_assignments.last().unwrap(), &matrix);
     let table_rows_dcfpam = get_table_rows(&metrics_for_each_cluster_dcfpam);
 
     /* BOTTOM UP CONSTRAINED FASTERPAM */
