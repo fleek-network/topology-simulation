@@ -1,14 +1,18 @@
-use std::{fmt::Display, time::Instant};
+use std::{collections::BTreeMap, fmt::Display};
 
 use ndarray::Array2;
+use pathfinding::prelude::Matrix;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::constrained_fasterpam;
+use crate::{
+    constrained_fasterpam,
+    types::{SerializedLayer, SerializedNode},
+};
 
 /// A divisive hierarchy strategy where we split the nodes into clusters of two, until the size
 /// is less than the target n
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone)]
 pub enum DivisiveHierarchy {
     Group {
         id: String,
@@ -17,8 +21,76 @@ pub enum DivisiveHierarchy {
     },
     Cluster {
         id: String,
-        nodes: Vec<usize>,
+        nodes: Vec<Node>,
     },
+}
+
+impl From<&DivisiveHierarchy> for SerializedLayer {
+    fn from(value: &DivisiveHierarchy) -> Self {
+        match value {
+            DivisiveHierarchy::Group {
+                id,
+                total,
+                children,
+            } => SerializedLayer::Group {
+                id: id.clone(),
+                total: *total,
+                children: children.iter().map(|c| c.into()).collect(),
+            },
+            DivisiveHierarchy::Cluster { id, nodes } => SerializedLayer::Cluster {
+                id: id.clone(),
+                nodes: nodes.iter().map(|n| n.into()).collect(),
+            },
+        }
+    }
+}
+
+impl Serialize for DivisiveHierarchy {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SerializedLayer::from(self).serialize(serializer)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Node {
+    id: usize,
+    current_id: usize,
+    connections: BTreeMap<usize, Vec<usize>>,
+}
+
+impl From<&Node> for SerializedNode {
+    fn from(val: &Node) -> Self {
+        SerializedNode {
+            id: val.id,
+            connections: val.connections.values().cloned().collect(),
+        }
+    }
+}
+
+impl Serialize for Node {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        SerializedNode::from(self).serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Node {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let temp = SerializedNode::deserialize(deserializer)?;
+        Ok(Self {
+            id: temp.id,
+            current_id: temp.id,
+            connections: BTreeMap::from_iter(temp.connections.iter().cloned().enumerate()),
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
