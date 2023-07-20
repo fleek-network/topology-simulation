@@ -122,11 +122,18 @@ impl Display for HierarchyPath {
 impl DivisiveHierarchy {
     /// Create a new divisive hierarchy using constrained fasterpam and selecting first
     pub fn new(dissim_matrix: &Array2<f64>, target_n: usize) -> Self {
-        let indeces: Vec<_> = (0..dissim_matrix.nrows()).map(|i| (i, i)).collect();
+        let nodes: Vec<_> = (0..dissim_matrix.nrows())
+            .map(|i| Node {
+                id: i,
+                current_id: i,
+                connections: BTreeMap::new(),
+            })
+            .collect();
+
         Self::new_inner(
             &mut rand::thread_rng(),
             dissim_matrix,
-            &indeces,
+            nodes,
             target_n,
             &HierarchyPath::root(),
             false,
@@ -136,17 +143,29 @@ impl DivisiveHierarchy {
     fn new_inner<R: Rng>(
         rng: &mut R,
         dissim_matrix: &Array2<f64>,
-        indeces: &[(usize, usize)],
+        mut indeces: Vec<Node>,
         target_n: usize,
         current_path: &HierarchyPath,
         last: bool,
     ) -> Self {
         if last {
+            // add connections to every other node in the cluster for each node in the cluster
+            let depth = current_path.depth();
+            let ids: Vec<_> = indeces.iter().map(|n| n.id).collect();
+            for node in indeces.iter_mut() {
+                let conns = node.connections.entry(depth).or_default();
+                for id in &ids {
+                    if id != &node.id {
+                        conns.push(*id);
+                    }
+                }
+            }
+
             // current list of nodes are within the target size
             Self::Cluster {
                 id: current_path.to_string(),
                 // collect the top level indeces for the nodes
-                nodes: indeces.iter().map(|i| i.0).collect(),
+                nodes: indeces.iter().map(|n| (*n).clone()).collect(),
             }
         } else {
             // Split the current indeces in half using constrained fasterpam with random init
@@ -168,22 +187,53 @@ impl DivisiveHierarchy {
                 clusters[assignment].push(node);
             }
 
-            // TODO: compute pairings between the clusters using a hungarian problem
-            //
-            // X: Cluster A nodes
-            // Y: Cluster B nodes
-            //
+            // build weight matrix
             // The smaller cluster should be placed on the left
+            if clusters[0].len() > clusters[1].len() {
+                clusters.swap(0, 1);
+            }
+            let (left_len, right_len) = (clusters[0].len(), clusters[1].len());
+            let mut weights = Vec::new();
+            for i in &clusters[0] {
+                for j in &clusters[1] {
+                    let dissim = dissim_matrix[(*i, *j)];
+                    weights.push((dissim * 1000.) as i32);
+                }
+            }
+
+            // Compute pairs with the munkres (hungarian) algorithm
+            let (_cost, pairs) = pathfinding::kuhn_munkres::kuhn_munkres_min(
+                &Matrix::from_vec(left_len, right_len, weights).unwrap(),
+            );
+            for (i, &j) in pairs.iter().enumerate() {
+                // add connection to i and j
+
+                let jid = indeces[clusters[1][j]].id;
+                let left = &mut indeces[clusters[0][i]];
+                left.connections
+                    .entry(current_path.depth())
+                    .or_default()
+                    .push(jid);
+
+                let iid = left.id;
+                let right = &mut indeces[clusters[1][i]];
+                right
+                    .connections
+                    .entry(current_path.depth())
+                    .or_default()
+                    .push(iid);
+            }
 
             // Recurse new children for each cluster
+            // Stopping criteria is if either cluster is less than the target n size
             let last = clusters[0].len() < target_n || clusters[1].len() < target_n;
             let mut children = Vec::with_capacity(2);
             for (path_index, new_indeces) in clusters.iter().enumerate() {
                 let nodes: Vec<_> = new_indeces
                     .iter()
                     .map(|&i| {
-                        let mut node = indeces[i];
-                        node.1 = i;
+                        let mut node = indeces[i].clone();
+                        node.current_id = i;
                         node
                     })
                     .collect();
@@ -197,10 +247,11 @@ impl DivisiveHierarchy {
                         child_matrix[(j, i)] = dissim;
                     }
                 }
-                // pass new matrix and indeces
+
+                // create a new child with the new matrix and indeces
                 let mut path = current_path.clone();
                 path.0.push(path_index as u8);
-                let child = Self::new_inner(rng, &child_matrix, &nodes, target_n, &path, last);
+                let child = Self::new_inner(rng, &child_matrix, nodes, target_n, &path, last);
                 children.push(child);
             }
 
@@ -231,8 +282,8 @@ impl DivisiveHierarchy {
                 },
                 DivisiveHierarchy::Cluster { nodes, .. } => {
                     *counter += 1;
-                    for &node in nodes {
-                        assignments[node] = *counter;
+                    for node in nodes {
+                        assignments[node.id] = *counter;
                     }
                 },
             }

@@ -260,7 +260,8 @@ fn run_dcfpam(dis_matrix: &Array<f64, Dim<[usize; 2]>>, target_n: usize) -> (Vec
     let instant = Instant::now();
 
     let hierarchy = DivisiveHierarchy::new(dis_matrix, target_n);
-    println!("{}", to_string_pretty(&hierarchy).unwrap());
+    let json = to_string_pretty(&hierarchy).expect("failed to serialize divisive topology"); 
+    std::fs::write("divisive_toplogy.json", json).expect("failed to save divisive toplogoy");
     let labels = hierarchy.assignments();
     (labels, instant.elapsed())
 }

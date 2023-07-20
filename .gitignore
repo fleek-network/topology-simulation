@@ -2,5 +2,6 @@
 pings*.csv
 server*.csv
 *.png
+*.json
 *.html
 __pycache__
