@@ -299,6 +299,7 @@ impl DivisiveHierarchy {
             total: usize,
         ) {
             let (counter, assignments) = data.entry(depth).or_insert((0, vec![0; total]));
+            let current = *counter;
             *counter += 1;
             match item {
                 DivisiveHierarchy::Group {
@@ -306,7 +307,7 @@ impl DivisiveHierarchy {
                 } => {
                     // set assignments
                     for node in nodes {
-                        assignments[node.id] = *counter;
+                        assignments[node.id] = current;
                     }
                     // recurse for each child item
                     for child in children {
@@ -315,7 +316,7 @@ impl DivisiveHierarchy {
                 },
                 DivisiveHierarchy::Cluster { nodes, .. } => {
                     for node in nodes {
-                        assignments[node.id] = *counter;
+                        assignments[node.id] = current;
                     }
                 },
             }
