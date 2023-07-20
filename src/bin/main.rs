@@ -260,7 +260,7 @@ fn run_dcfpam(dis_matrix: &Array<f64, Dim<[usize; 2]>>, target_n: usize) -> (Vec
     let instant = Instant::now();
 
     let hierarchy = DivisiveHierarchy::new(dis_matrix, target_n);
-    let json = to_string_pretty(&hierarchy).expect("failed to serialize divisive topology"); 
+    let json = to_string_pretty(&hierarchy).expect("failed to serialize divisive topology");
     std::fs::write("divisive_toplogy.json", json).expect("failed to save divisive toplogoy");
     let labels = hierarchy.assignments();
     (labels, instant.elapsed())
@@ -538,10 +538,11 @@ fn run() {
     let table_rows_c_fasterpam_2c = get_table_rows(&metrics_for_each_cluster_c_fasterpam_2c);
 
     /* BOTTOM UP CONSTRAINED FASTERPAM */
-    let node_hierarchy = clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 8, 12, 100);
+    let node_hierarchy =
+        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 8, 12, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
-    plot_buffer.push_str(r#"<div style="">"#);
+    plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
     for (depth, assignment) in hierarchy_assignments {
         scatter_plot(
             &mut plot_buffer,
@@ -690,6 +691,10 @@ fn run() {
         body {{ font-family: '{FONT}', monospace }}
         tr:nth-child(even) {{
             background-color: rgba(150, 212, 212, 0.4);
+        }}
+
+        .side-by-side > * {{
+            min-width: 1200px;
         }}
     </style>
 </head>
