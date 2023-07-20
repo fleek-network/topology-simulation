@@ -7,9 +7,10 @@
 //! constrained k-means implementation.
 
 use core::ops::AddAssign;
+use std::{collections::BTreeMap, convert::From};
+
 use mcmf::{Capacity, Cost, GraphBuilder, Vertex};
 use num_traits::{Signed, Zero};
-use std::{collections::BTreeMap, convert::From};
 
 /// Adapter trait for accessing different types of arrays
 #[allow(clippy::len_without_is_empty)]
@@ -46,9 +47,13 @@ where
 ///
 /// ## Example
 /// ```
-/// let data = kmedoids::arrayadapter::LowerTriangle { n: 4, data: vec![1, 2, 3, 4, 5, 6] };
+/// let data = kmedoids::arrayadapter::LowerTriangle {
+///     n: 4,
+///     data: vec![1, 2, 3, 4, 5, 6],
+/// };
 /// let mut meds = vec![0, 1];
-/// let (loss, numswap, numiter, assignment): (f64, _, _, _) = kmedoids::fasterpam(&data, &mut meds, 10);
+/// let (loss, numswap, numiter, assignment): (f64, _, _, _) =
+///     kmedoids::fasterpam(&data, &mut meds, 10);
 /// println!("Loss is {}", loss);
 /// ```
 #[derive(Debug, Clone)]
@@ -166,7 +171,8 @@ where
 /// to increase randomness of the solutions found and hence increase the chance
 /// of finding a better solution.
 ///
-/// * type `M` - matrix data type such as `ndarray::Array2` or `kmedoids::arrayadapter::LowerTriangle`
+/// * type `M` - matrix data type such as `ndarray::Array2` or
+///   `kmedoids::arrayadapter::LowerTriangle`
 /// * type `N` - number data type such as `u32` or `f64`
 /// * type `L` - number data type such as `i64` or `f64` for the loss (must be signed)
 /// * `mat` - a pairwise distance matrix
@@ -187,7 +193,7 @@ where
 /// ## Example
 /// Given a dissimilarity matrix of size 4 x 4, use:
 /// ```
-/// let data = ndarray::arr2(&[[0,1,2,3],[1,0,4,5],[2,4,0,6],[3,5,6,0]]);
+/// let data = ndarray::arr2(&[[0, 1, 2, 3], [1, 0, 4, 5], [2, 4, 0, 6], [3, 5, 6, 0]]);
 /// let mut meds = kmedoids::random_initialization(4, 2, &mut rand::thread_rng());
 /// let (loss, assi, n_iter, n_swap): (f64, _, _, _) = kmedoids::fasterpam(&data, &mut meds, 100);
 /// println!("Loss is: {}", loss);
@@ -374,10 +380,12 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(
             // source -> supply node
             graph.add_edge(Vertex::Source, i, Capacity(1), Cost(0));
 
-            if let Some(offset) = medoids.iter().position(|v| v == &i) {
-                // compute cluster index
-                let cluster = total + offset;
-                graph.add_edge(i, cluster, Capacity(1), Cost(0));
+            if let Some(self_offset) = medoids.iter().position(|v| v == &i) {
+                for offset in 0..k {
+                    let cost = if offset == self_offset { 0 } else { i32::MAX };
+                    let cluster = offset + total;
+                    graph.add_edge(i, cluster, Capacity(1), Cost(cost));
+                }
             } else {
                 for (offset, &j) in medoids.iter().enumerate() {
                     // supply node -> medoid

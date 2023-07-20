@@ -1,27 +1,21 @@
-mod constrained_fasterpam;
-mod constrained_k_medoids;
-mod divisive;
-
-use std::collections::BTreeMap;
-use std::time::{Duration, Instant};
+use std::{
+    collections::BTreeMap,
+    error::Error,
+    time::{Duration, Instant},
+};
 
 use base64::Engine;
-use constrained_k_medoids::ConstrainedKMedoids;
-use divisive::DivisiveHierarchy;
+use clustering::{
+    bottom_up::NodeHierarchy, constrained_k_medoids::ConstrainedKMedoids,
+    divisive::DivisiveHierarchy,
+};
+use csv::ReaderBuilder;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
+use plotters::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-
-use crate::bottom_up::NodeHierarchy;
-use csv::ReaderBuilder;
 use serde_json::to_string_pretty;
-use std::error::Error;
-
-use plotters::prelude::*;
-
-mod bottom_up;
-mod stats;
 
 const FONT: &str = "IBM Plex Mono, monospace";
 
@@ -50,8 +44,8 @@ struct ClusterMetrics {
 
 impl From<Vec<f64>> for ClusterMetrics {
     fn from(value: Vec<f64>) -> Self {
-        let mean_latency = stats::mean(&value).unwrap_or(f64::NAN);
-        let standard_dev_latency = stats::std_deviation(&value).unwrap_or(f64::NAN);
+        let mean_latency = clustering::stats::mean(&value).unwrap_or(f64::NAN);
+        let standard_dev_latency = clustering::stats::std_deviation(&value).unwrap_or(f64::NAN);
         let mut min_latency = f64::MAX;
         let mut max_latency = f64::MIN;
         value.iter().for_each(|v| {
@@ -232,6 +226,8 @@ fn run_fasterpam(
 fn run_constrained_fasterpam(
     dis_matrix: &Array<f64, Dim<[usize; 2]>>,
     num_clusters: usize,
+    min: usize,
+    max: usize,
 ) -> (Vec<usize>, usize, Duration) {
     let mut meds = kmedoids::random_initialization(
         dis_matrix.shape()[0],
@@ -240,7 +236,7 @@ fn run_constrained_fasterpam(
     );
     let instant = Instant::now();
     let (_, labels, iterations, _): (f64, _, _, _) =
-        constrained_fasterpam::fasterpam(dis_matrix, &mut meds, 100, 8, 12);
+        clustering::constrained_fasterpam::fasterpam(dis_matrix, &mut meds, 100, min, max);
     (labels, iterations, instant.elapsed())
 }
 
@@ -264,6 +260,7 @@ fn run_dcfpam(dis_matrix: &Array<f64, Dim<[usize; 2]>>, target_n: usize) -> (Vec
     let instant = Instant::now();
 
     let hierarchy = DivisiveHierarchy::new(dis_matrix, target_n);
+    println!("{}", to_string_pretty(&hierarchy).unwrap());
     let labels = hierarchy.assignments();
     (labels, instant.elapsed())
 }
@@ -389,7 +386,8 @@ fn toy_example() {
     let (assignment, _, _) = run_fasterpam(&dis_matrix, 3);
     scatter_plot(&mut plot_buffer, &data, &assignment, "FasterPAM");
 
-    let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix, 3);
+    let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix, 3, 4, 12);
+
     scatter_plot(
         &mut plot_buffer,
         &data,
@@ -495,7 +493,7 @@ fn run() {
     eprintln!("running constrained fasterpam");
 
     let (assignment, c_fasterpam_num_iterations, c_fasterpam_duration) =
-        run_constrained_fasterpam(&dissim_matrix, num_clusters);
+        run_constrained_fasterpam(&dissim_matrix, num_clusters, 8, 10);
     scatter_plot(
         &mut plot_buffer,
         &data_points,
@@ -523,10 +521,10 @@ fn run() {
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_dcfpam = get_table_rows(&metrics_for_each_cluster_dcfpam);
 
-    println!("running constrained fasterpam for 2 clusters");
+    eprintln!("running constrained fasterpam for 2 clusters");
 
     let (assignment, c_fasterpam_2c_num_iterations, c_fasterpam_2c_duration) =
-        run_constrained_fasterpam(&dissim_matrix, 2);
+        run_constrained_fasterpam(&dissim_matrix, 2, 90, 110);
     scatter_plot(
         &mut plot_buffer,
         &data_points,
@@ -538,10 +536,11 @@ fn run() {
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_c_fasterpam_2c = get_table_rows(&metrics_for_each_cluster_c_fasterpam_2c);
 
-    /* DIVISIVE CONSTRAINED FASTERPAM */
-    let node_hierarchy = bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 8, 12, 100);
+    /* BOTTOM UP CONSTRAINED FASTERPAM */
+    let node_hierarchy = clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 8, 12, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
+    plot_buffer.push_str(r#"<div style="">"#);
     for (depth, assignment) in hierarchy_assignments {
         scatter_plot(
             &mut plot_buffer,
@@ -550,6 +549,7 @@ fn run() {
             &format!("Bottom Up Constrained Fastpam - Level {}", depth),
         );
     }
+    plot_buffer.push_str(r#"</div>"#);
 
     // build histograms
     let baseline_cluster_means = metrics_for_each_cluster_baseline

@@ -19,7 +19,7 @@ pub fn std_deviation(data: &[f64]) -> Option<f64> {
                 / count as f64;
 
             Some(variance.sqrt())
-        }
+        },
         _ => None,
     }
 }

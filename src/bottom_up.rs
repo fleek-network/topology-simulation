@@ -1,8 +1,9 @@
 use std::collections::{BTreeMap, HashMap};
 
-use crate::constrained_fasterpam;
 use ndarray::{iter::IndexedIterMut, Array, Array2};
 use serde::{Deserialize, Serialize};
+
+use crate::constrained_fasterpam;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Cluster {
@@ -35,10 +36,10 @@ impl Cluster {
                 children
                     .iter()
                     .for_each(|child| Cluster::_get_node_indices(child, indices));
-            }
+            },
             Cluster::LeafCluster { index: _, nodes } => {
                 nodes.iter().for_each(|node| indices.push(node.index));
-            }
+            },
         }
     }
 
@@ -51,14 +52,14 @@ impl Cluster {
                 for cluster in children.iter() {
                     s.push(cluster.get_string_rep(depth + 1));
                 }
-            }
+            },
             Cluster::LeafCluster { index, nodes } => {
                 let node_indices: Vec<usize> = nodes.iter().map(|node| node.index).collect();
                 s.push(format!(
                     "{}LeafCluster ( index: {}, nodes: {:?} )",
                     whitespace, index, node_indices
                 ));
-            }
+            },
         }
         s.join("\n")
     }
@@ -272,13 +273,12 @@ impl NodeHierarchy {
 
 #[cfg(test)]
 mod tests {
-    use crate::bottom_up::NodeHierarchy;
-    use crate::constrained_fasterpam;
     use ndarray::Array2;
     use ndarray_rand::rand_distr::{Distribution, UnitDisc};
     use rand::{self, Rng};
 
     use super::Cluster;
+    use crate::{bottom_up::NodeHierarchy, constrained_fasterpam};
 
     fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array2<f64> {
         let mut points = Array2::zeros((num_nodes, 2));

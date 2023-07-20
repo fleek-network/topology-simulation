@@ -41,7 +41,8 @@ impl<'a> ConstrainedKMedoids<'a> {
         }
     }
 
-    /// Create a new instance of constrained k medoids, with random selection for the initial k medoids.
+    /// Create a new instance of constrained k medoids, with random selection for the initial k
+    /// medoids.
     pub fn with_rand_medoids<R: Rng>(
         dissimilarity_matrix: &'a Array2<f64>,
         k: usize,
