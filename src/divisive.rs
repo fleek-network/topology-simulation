@@ -1,4 +1,7 @@
-use std::{collections::BTreeMap, fmt::Display};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+};
 
 use ndarray::Array2;
 use pathfinding::prelude::Matrix;
@@ -119,6 +122,15 @@ impl Display for HierarchyPath {
     }
 }
 
+fn add_connection(indeces: &mut [Node], depth: usize, i: usize, j: usize) {
+    let jid = indeces[j].id;
+    let left = &mut indeces[i];
+    left.connections.entry(depth).or_default().push(jid);
+    let iid = left.id;
+    let right = &mut indeces[j];
+    right.connections.entry(depth).or_default().push(iid);
+}
+
 impl DivisiveHierarchy {
     /// Create a new divisive hierarchy using constrained fasterpam and selecting first
     pub fn new(dissim_matrix: &Array2<f64>, target_n: usize) -> Self {
@@ -205,23 +217,26 @@ impl DivisiveHierarchy {
             let (_cost, pairs) = pathfinding::kuhn_munkres::kuhn_munkres_min(
                 &Matrix::from_vec(left_len, right_len, weights).unwrap(),
             );
+            let mut remaining = BTreeSet::from_iter(&clusters[1]);
             for (i, &j) in pairs.iter().enumerate() {
                 // add connection to i and j
+                let (i, j) = (clusters[0][i], clusters[1][j]);
+                add_connection(&mut indeces, current_path.depth(), i, j);
+                remaining.remove(&j);
+            }
 
-                let jid = indeces[clusters[1][j]].id;
-                let left = &mut indeces[clusters[0][i]];
-                left.connections
-                    .entry(current_path.depth())
-                    .or_default()
-                    .push(jid);
-
-                let iid = left.id;
-                let right = &mut indeces[clusters[1][i]];
-                right
-                    .connections
-                    .entry(current_path.depth())
-                    .or_default()
-                    .push(iid);
+            // Find best pair for missing nodes
+            for &missing in remaining {
+                let mut best = clusters[0][0];
+                let mut best_dist = dissim_matrix[(best, missing)];
+                for possible in &clusters[0][1..] {
+                    let dist = dissim_matrix[(*possible, missing)];
+                    if dist < best_dist {
+                        best = *possible;
+                        best_dist = dist;
+                    }
+                }
+                add_connection(&mut indeces, current_path.depth(), missing, best);
             }
 
             // Recurse new children for each cluster
