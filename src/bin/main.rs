@@ -256,7 +256,7 @@ fn run_constrained_alternating(
     (labels, iterations, instant.elapsed())
 }
 
-fn run_dcfpam(dis_matrix: &Array<f64, Dim<[usize; 2]>>, target_n: usize) -> (Vec<usize>, Duration) {
+fn run_dcfpam(dis_matrix: &Array<f64, Dim<[usize; 2]>>, target_n: usize) -> (Vec<Vec<usize>>, Duration) {
     let instant = Instant::now();
 
     let hierarchy = DivisiveHierarchy::new(dis_matrix, target_n);
@@ -510,13 +510,17 @@ fn run() {
 
     eprintln!("running divisive constrained fasterpam");
 
-    let (assignment, dcfpam_duration) = run_dcfpam(&dissim_matrix, 20);
-    scatter_plot(
-        &mut plot_buffer,
-        &data_points,
-        &assignment,
-        "Divisive Constrained FasterPAM",
-    );
+    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix, 20);
+    plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
+    for (depth, assignment) in hierarchy_assignments.iter().skip(0).enumerate() {
+        scatter_plot(
+            &mut plot_buffer,
+            &data_points,
+            assignment,
+            &format!("Divisive Constrained Fastpam - Level {}", depth),
+        );
+    }
+    plot_buffer.push_str(r#"</div>"#);
 
     let (metrics_for_each_cluster_dcfpam, overall_cluster_metrics_dcfpam) =
         calculate_cluster_metrics(&assignment, &matrix);

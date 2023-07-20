@@ -21,6 +21,7 @@ pub enum DivisiveHierarchy {
         id: String,
         total: usize,
         children: Vec<DivisiveHierarchy>,
+        nodes: Vec<Node>,
     },
     Cluster {
         id: String,
@@ -35,6 +36,7 @@ impl From<&DivisiveHierarchy> for SerializedLayer {
                 id,
                 total,
                 children,
+                ..
             } => SerializedLayer::Group {
                 id: id.clone(),
                 total: *total,
@@ -273,6 +275,7 @@ impl DivisiveHierarchy {
             Self::Group {
                 id: current_path.to_string(),
                 total: indeces.len(),
+                nodes: indeces,
                 children,
             }
         }
@@ -286,17 +289,31 @@ impl DivisiveHierarchy {
         }
     }
 
-    /// Collect assignments for each node in the hierarchy, returning cluster indexes
-    pub fn assignments(&self) -> Vec<usize> {
-        fn inner(counter: &mut usize, assignments: &mut [usize], item: &DivisiveHierarchy) {
+    /// Collect assignments for each node at each depth of the hierarchy. The last vec of
+    /// assignments is the final tree depth.
+    pub fn assignments(&self) -> Vec<Vec<usize>> {
+        fn inner(
+            item: &DivisiveHierarchy,
+            data: &mut BTreeMap<usize, (usize, Vec<usize>)>,
+            depth: usize,
+            total: usize,
+        ) {
+            let (counter, assignments) = data.entry(depth).or_insert((0, vec![0; total]));
+            *counter += 1;
             match item {
-                DivisiveHierarchy::Group { children, .. } => {
+                DivisiveHierarchy::Group {
+                    children, nodes, ..
+                } => {
+                    // set assignments
+                    for node in nodes {
+                        assignments[node.id] = *counter;
+                    }
+                    // recurse for each child item
                     for child in children {
-                        inner(counter, assignments, child);
+                        inner(child, data, depth + 1, total);
                     }
                 },
                 DivisiveHierarchy::Cluster { nodes, .. } => {
-                    *counter += 1;
                     for node in nodes {
                         assignments[node.id] = *counter;
                     }
@@ -304,12 +321,9 @@ impl DivisiveHierarchy {
             }
         }
 
+        let mut data = BTreeMap::new();
         let total = self.n_nodes();
-        let mut assignments = vec![999; total];
-        let mut counter = 0;
-
-        inner(&mut counter, &mut assignments, self);
-
-        assignments
+        inner(self, &mut data, 0, total);
+        data.into_values().map(|v| v.1).collect()
     }
 }
