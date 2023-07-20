@@ -539,7 +539,7 @@ fn run() {
 
     /* BOTTOM UP CONSTRAINED FASTERPAM */
     let node_hierarchy =
-        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 8, 12, 100);
+        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 10, 11, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);

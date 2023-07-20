@@ -136,11 +136,13 @@ impl NodeHierarchy {
 
         let mut medoids = meds;
         let mut depth = 0;
+        let mut assignment = assignment;
 
         let mut level = NodeHierarchy::new_leaf_hierarchy(&assignment);
 
         loop {
             let new_dis_matrix = NodeHierarchy::build_matrix(dis_matrix, &medoids);
+            //let new_dis_matrix = NodeHierarchy::build_matrix_v2(dis_matrix, &medoids, &assignment);
 
             let mut new_medoids = kmedoids::random_initialization(
                 new_dis_matrix.shape()[0],
@@ -156,6 +158,7 @@ impl NodeHierarchy {
             medoids = new_medoids;
             level = new_level;
             depth += 1;
+            assignment = new_assignment;
 
             if medoids.len() <= 3 {
                 break;
@@ -208,7 +211,7 @@ impl NodeHierarchy {
         }
     }
 
-    fn new_hierarchy(below_level: &mut NodeHierarchy, assignment: &Vec<usize>) -> Self {
+    fn new_hierarchy(below_level: &mut NodeHierarchy, assignment: &[usize]) -> Self {
         // TODO: merge clusters that aren't non-leaf clusters using hungarian algo
         let mut clusters_map = BTreeMap::new();
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
@@ -234,7 +237,7 @@ impl NodeHierarchy {
         NodeHierarchy { clusters }
     }
 
-    fn new_leaf_hierarchy(assignment: &Vec<usize>) -> Self {
+    fn new_leaf_hierarchy(assignment: &[usize]) -> Self {
         let mut clusters_map = BTreeMap::new();
         for (node_index, cluster_index) in assignment.iter().enumerate() {
             clusters_map
@@ -255,7 +258,9 @@ impl NodeHierarchy {
         Self { clusters }
     }
 
-    fn build_matrix(dis_matrix: &Array2<f64>, medoids: &Vec<usize>) -> Array2<f64> {
+    fn build_matrix(dis_matrix: &Array2<f64>, medoids: &[usize]) -> Array2<f64> {
+        let mut medoids = medoids.to_vec();
+        medoids.sort();
         let mut new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
         for (i_new, &i) in medoids.iter().enumerate() {
             for (j_new, &j) in medoids.iter().enumerate() {
@@ -263,6 +268,42 @@ impl NodeHierarchy {
                     continue;
                 }
                 new_dis_matrix[[i_new, j_new]] = dis_matrix[[i, j]];
+            }
+        }
+        new_dis_matrix
+    }
+
+    fn build_matrix_v2(
+        dis_matrix: &Array2<f64>,
+        medoids: &[usize],
+        assignment: &[usize],
+    ) -> Array2<f64> {
+        let mut medoids = medoids.to_vec();
+        medoids.sort();
+        let mut new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
+        let mut clusters = BTreeMap::new();
+        for (node_index, cluster_index) in assignment.iter().enumerate() {
+            clusters
+                .entry(cluster_index)
+                .or_insert(Vec::new())
+                .push(node_index);
+        }
+
+        for (&i, node_indices_i) in clusters.iter() {
+            for (&j, node_indices_j) in clusters.iter() {
+                if i != j {
+                    let mut sum = 0.0;
+                    let mut count = 0;
+                    for &node_i in node_indices_i.iter() {
+                        for &node_j in node_indices_j.iter() {
+                            sum += dis_matrix[[node_i, node_j]];
+                            count += 1;
+                        }
+                    }
+                    if count > 0 {
+                        new_dis_matrix[[*i, *j]] = sum / count as f64;
+                    }
+                }
             }
         }
         new_dis_matrix
