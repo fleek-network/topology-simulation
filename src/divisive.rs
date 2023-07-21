@@ -62,7 +62,6 @@ impl Serialize for DivisiveHierarchy {
 #[derive(Debug, Clone)]
 pub struct Node {
     id: usize,
-    current_id: usize,
     connections: BTreeMap<usize, Vec<usize>>,
 }
 
@@ -92,7 +91,6 @@ impl<'de> Deserialize<'de> for Node {
         let temp = SerializedNode::deserialize(deserializer)?;
         Ok(Self {
             id: temp.id,
-            current_id: temp.id,
             connections: BTreeMap::from_iter(temp.connections.iter().cloned().enumerate()),
         })
     }
@@ -139,7 +137,6 @@ impl DivisiveHierarchy {
         let nodes: Vec<_> = (0..dissim_matrix.nrows())
             .map(|i| Node {
                 id: i,
-                current_id: i,
                 connections: BTreeMap::new(),
             })
             .collect();
@@ -246,19 +243,12 @@ impl DivisiveHierarchy {
             let last = clusters[0].len() < target_n || clusters[1].len() < target_n;
             let mut children = Vec::with_capacity(2);
             for (path_index, new_indeces) in clusters.iter().enumerate() {
-                let nodes: Vec<_> = new_indeces
-                    .iter()
-                    .map(|&i| {
-                        let mut node = indeces[i].clone();
-                        node.current_id = i;
-                        node
-                    })
-                    .collect();
-
                 // build new matrix from medoids
-                let mut child_matrix = Array2::zeros((nodes.len(), nodes.len()));
+                let mut child_matrix = Array2::zeros((new_indeces.len(), new_indeces.len()));
+
                 for (i, &iidx) in new_indeces.iter().enumerate() {
-                    for (j, &jidx) in new_indeces[i + 1..].iter().enumerate() {
+                    for (mut j, &jidx) in new_indeces[i + 1..].iter().enumerate() {
+                        j += i + 1;
                         let dissim = dissim_matrix[(iidx, jidx)];
                         child_matrix[(i, j)] = dissim;
                         child_matrix[(j, i)] = dissim;
@@ -268,6 +258,8 @@ impl DivisiveHierarchy {
                 // create a new child with the new matrix and indeces
                 let mut path = current_path.clone();
                 path.0.push(path_index as u8);
+
+                let nodes: Vec<_> = new_indeces.iter().map(|&i| indeces[i].clone()).collect();
                 let child = Self::new_inner(rng, &child_matrix, nodes, target_n, &path, last);
                 children.push(child);
             }
