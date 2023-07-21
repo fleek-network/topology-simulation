@@ -47,6 +47,23 @@ impl Cluster {
         }
     }
 
+    fn connect_nodes_in_leaf_cluster(&self) {
+        if let Cluster::LeafCluster { index: _, nodes } = self {
+            for node_lhs in nodes.iter() {
+                for node_rhs in nodes.iter() {
+                    if node_lhs.index != node_rhs.index {
+                        node_lhs
+                            .connections
+                            .borrow_mut()
+                            .entry(0)
+                            .or_insert(Vec::new())
+                            .push(node_rhs.index);
+                    }
+                }
+            }
+        }
+    }
+
     fn get_node_indices(&self) -> Vec<usize> {
         let mut indices = Vec::new();
         Cluster::_get_node_indices(self, &mut indices);
@@ -154,14 +171,14 @@ impl NodeHierarchy {
             init_max_size,
         );
 
-        // TODO: connect nodes to each node in the cluster
-
         let mut medoids = meds;
         let mut level = 0;
 
         let mut hierarchy = NodeHierarchy::new_leaf_hierarchy(&assignment);
+        hierarchy.connect_nodes_in_leaf_clusters();
 
         loop {
+            level += 1;
             let new_dis_matrix = NodeHierarchy::build_matrix(dis_matrix, &medoids);
             //let new_dis_matrix = NodeHierarchy::build_matrix_v2(dis_matrix, &medoids, &assignment);
 
@@ -180,12 +197,12 @@ impl NodeHierarchy {
 
             medoids = new_medoids;
             hierarchy = new_hierarchy;
-            level += 1;
 
             if medoids.len() <= 2 {
                 break;
             }
         }
+        hierarchy.connect_nodes_in_root_clusters(dis_matrix, level + 1);
         hierarchy
     }
 
@@ -247,7 +264,6 @@ impl NodeHierarchy {
         assignment: &[usize],
         level: usize,
     ) -> Self {
-        // TODO: merge clusters that aren't non-leaf clusters using hungarian algo
         let mut clusters_map = BTreeMap::new();
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
             let cluster = below_level
@@ -261,7 +277,7 @@ impl NodeHierarchy {
         }
 
         // Connect nodes that were merged into a cluster
-        for (_, clusters) in clusters_map.iter_mut() {
+        for (_, clusters) in clusters_map.iter() {
             for (i, cluster_lhs) in clusters.iter().enumerate() {
                 for cluster_rhs in clusters[i + 1..].iter() {
                     let node_indices_lhs = cluster_lhs.get_node_indices();
@@ -363,8 +379,8 @@ impl NodeHierarchy {
     }
 
     fn build_matrix(dis_matrix: &Array2<f64>, medoids: &[usize]) -> Array2<f64> {
-        //let mut medoids = medoids.to_vec();
-        //medoids.sort();
+        let mut medoids = medoids.to_vec();
+        medoids.sort();
         let mut new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
         for (i_new, &i) in medoids.iter().enumerate() {
             for (j_new, &j) in medoids.iter().enumerate() {
@@ -375,6 +391,32 @@ impl NodeHierarchy {
             }
         }
         new_dis_matrix
+    }
+
+    fn connect_nodes_in_leaf_clusters(&self) {
+        self.clusters
+            .iter()
+            .for_each(|(_, cluster)| cluster.connect_nodes_in_leaf_cluster());
+    }
+
+    fn connect_nodes_in_root_clusters(&self, dis_matrix: &Array2<f64>, level: usize) {
+        let cluster_indices: Vec<usize> = self.clusters.keys().copied().collect();
+        for i in cluster_indices.iter() {
+            for j in cluster_indices[i + 1..].iter() {
+                let node_indices_lhs = self.clusters.get(i).unwrap().get_node_indices();
+                let node_indices_rhs = self.clusters.get(j).unwrap().get_node_indices();
+                let connection_map =
+                    NodeHierarchy::connect_clusters(node_indices_lhs, node_indices_rhs, dis_matrix);
+                self.clusters
+                    .get(i)
+                    .unwrap()
+                    .add_connections(level, &connection_map);
+                self.clusters
+                    .get(j)
+                    .unwrap()
+                    .add_connections(level, &connection_map);
+            }
+        }
     }
 
     fn _build_matrix_v2(
@@ -457,7 +499,7 @@ mod tests {
     }
 
     #[test]
-    fn test_new() {
+    fn test_new_bar() {
         //let points = get_random_points(100, 10);
         let num_points = 20;
         let cluster_size = 5;
@@ -472,6 +514,8 @@ mod tests {
             100,
         );
         println!("{node_hierarchy}");
+        println!();
+        println!("{node_hierarchy:?}");
         println!();
         println!("{:?}", node_hierarchy.get_assignments());
     }
@@ -516,7 +560,7 @@ mod tests {
         // cluster_0 : [cluster_0, cluster_2]
         // cluster_1 : [cluster_1, cluster_3]
         let assignment = vec![0, 1, 0, 1];
-        let matrix = Array2::zeros((2, 2)); // dummy matrix
+        let matrix = Array2::zeros((12, 12)); // dummy matrix
         let node_hierarchy =
             NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &matrix, &assignment, 0);
         let assignment_map = node_hierarchy.get_assignments_map();
@@ -553,7 +597,7 @@ mod tests {
         // cluster_0 : [cluster_0, cluster_2]
         // cluster_1 : [cluster_1, cluster_3]
         let assignment = vec![0, 1, 0, 1];
-        let matrix = Array2::zeros((2, 2)); // dummy matrix
+        let matrix = Array2::zeros((12, 12)); // dummy matrix
         let node_hierarchy =
             NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &matrix, &assignment, 0);
         assert_eq!(node_hierarchy.clusters.len(), 2);
@@ -583,12 +627,12 @@ mod tests {
     fn test_build_matrix() {
         let points = get_random_points(100, 10);
         let matrix = get_distance_matrix(&points);
-        let medoids = vec![0, 4, 10, 23, 1, 7, 83, 44, 57, 66];
+        let medoids = vec![0, 1, 4, 7, 10, 23, 44, 57, 66, 83];
         let new_matrix = NodeHierarchy::build_matrix(&matrix, &medoids);
         assert_eq!(new_matrix.shape()[0], medoids.len());
         assert_eq!(new_matrix.shape()[1], medoids.len());
-        assert_eq!(new_matrix[[1, 3]], matrix[[4, 23]]);
-        assert_eq!(new_matrix[[0, 6]], matrix[[0, 83]]);
-        assert_eq!(new_matrix[[5, 8]], matrix[[7, 57]]);
+        assert_eq!(new_matrix[[1, 3]], matrix[[1, 7]]);
+        assert_eq!(new_matrix[[0, 6]], matrix[[0, 44]]);
+        assert_eq!(new_matrix[[5, 8]], matrix[[23, 66]]);
     }
 }

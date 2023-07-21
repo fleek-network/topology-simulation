@@ -527,22 +527,21 @@ fn run() {
     println!("running bottom up constrained fasterpam");
 
     /* BOTTOM UP CONSTRAINED FASTERPAM */
-    let num_clusters_bu = if num_clusters % 2 == 1 {
-        num_clusters - 1
-    } else {
-        num_clusters
-    };
     let node_hierarchy =
-        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters_bu, 9, 11, 100);
+        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 9, 11, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
+    let num_levels = hierarchy_assignments.len();
     for (depth, assignment) in hierarchy_assignments {
         scatter_plot(
             &mut plot_buffer,
             &data_points,
             &assignment,
-            &format!("Bottom Up Constrained Fastpam - Level {}", depth),
+            &format!(
+                "Bottom Up Constrained Fastpam - Level {}",
+                num_levels - depth - 1
+            ),
         );
     }
     plot_buffer.push_str(r#"</div>"#);

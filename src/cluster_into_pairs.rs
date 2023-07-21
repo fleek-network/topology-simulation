@@ -114,7 +114,7 @@ pub fn cluster(dis_matrix: &Array2<f64>) -> (Vec<usize>, Vec<usize>) {
             assignment[node] = cluster_index;
         }
     }
-    (assignment, medoids.iter().map(|(k, _)| *k).collect())
+    (assignment, medoids.keys().copied().collect())
 }
 
 #[cfg(test)]
