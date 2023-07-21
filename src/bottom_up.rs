@@ -55,10 +55,12 @@ pub enum Cluster {
     Cluster {
         index: usize,
         total: usize,
+        node_indices: Vec<usize>,
         children: Vec<Cluster>,
     },
     LeafCluster {
         index: usize,
+        node_indices: Vec<usize>,
         nodes: Vec<Node>,
     },
 }
@@ -75,6 +77,7 @@ impl Cluster {
             Cluster::Cluster {
                 index,
                 total,
+                node_indices: _,
                 children,
             } => {
                 level_path.push(index.to_string());
@@ -89,7 +92,11 @@ impl Cluster {
                     children: serialized_children,
                 }
             },
-            Cluster::LeafCluster { index, nodes } => {
+            Cluster::LeafCluster {
+                index,
+                node_indices: _,
+                nodes,
+            } => {
                 let serialized_nodes: Vec<SerializedNode> =
                     nodes.iter().map(|node| node.clone().into()).collect();
                 level_path.push(index.to_string());
@@ -106,13 +113,18 @@ impl Cluster {
             Cluster::Cluster {
                 index: _,
                 total: _,
+                node_indices: _,
                 children,
             } => {
                 children
                     .iter()
                     .for_each(|child| child.add_connections(level, connection_map));
             },
-            Cluster::LeafCluster { index: _, nodes } => {
+            Cluster::LeafCluster {
+                index: _,
+                node_indices: _,
+                nodes,
+            } => {
                 for node in nodes.iter() {
                     if let Some(node_indices) = connection_map.get(&node.index) {
                         node.connections
@@ -127,7 +139,12 @@ impl Cluster {
     }
 
     fn connect_nodes_in_leaf_cluster(&self) {
-        if let Cluster::LeafCluster { index: _, nodes } = self {
+        if let Cluster::LeafCluster {
+            index: _,
+            node_indices: _,
+            nodes,
+        } = self
+        {
             for node_lhs in nodes.iter() {
                 for node_rhs in nodes.iter() {
                     if node_lhs.index != node_rhs.index {
@@ -143,26 +160,35 @@ impl Cluster {
         }
     }
 
-    fn get_node_indices(&self) -> Vec<usize> {
-        let mut indices = Vec::new();
-        Cluster::_get_node_indices(self, &mut indices);
-        indices
-    }
-
-    fn _get_node_indices(cluster: &Cluster, indices: &mut Vec<usize>) {
-        match cluster {
+    fn _get_node_indices(&self) -> Vec<usize> {
+        match self {
             Cluster::Cluster {
                 index: _,
                 total: _,
-                children,
-            } => {
-                children
-                    .iter()
-                    .for_each(|child| Cluster::_get_node_indices(child, indices));
-            },
-            Cluster::LeafCluster { index: _, nodes } => {
-                nodes.iter().for_each(|node| indices.push(node.index));
-            },
+                node_indices,
+                children: _,
+            } => node_indices.clone(),
+            Cluster::LeafCluster {
+                index: _,
+                node_indices: _,
+                nodes,
+            } => nodes.iter().map(|node| node.index).collect(),
+        }
+    }
+
+    fn get_node_indices(&self) -> &[usize] {
+        match self {
+            Cluster::Cluster {
+                index: _,
+                total: _,
+                node_indices,
+                children: _,
+            } => node_indices,
+            Cluster::LeafCluster {
+                index: _,
+                node_indices,
+                nodes: _,
+            } => node_indices,
         }
     }
 
@@ -173,6 +199,7 @@ impl Cluster {
             Cluster::Cluster {
                 index,
                 total: _,
+                node_indices: _,
                 children,
             } => {
                 s.push(format!("{}Cluster ( index: {} )", whitespace, index));
@@ -180,8 +207,11 @@ impl Cluster {
                     s.push(cluster.get_string_rep(depth + 1));
                 }
             },
-            Cluster::LeafCluster { index, nodes } => {
-                let node_indices: Vec<usize> = nodes.iter().map(|node| node.index).collect();
+            Cluster::LeafCluster {
+                index,
+                node_indices,
+                nodes: _,
+            } => {
                 s.push(format!(
                     "{}LeafCluster ( index: {}, nodes: {:?} )",
                     whitespace, index, node_indices
@@ -196,9 +226,14 @@ impl Cluster {
             Cluster::Cluster {
                 index,
                 total: _,
+                node_indices: _,
                 children: _,
             } => *index,
-            Cluster::LeafCluster { index, nodes: _ } => *index,
+            Cluster::LeafCluster {
+                index,
+                node_indices: _,
+                nodes: _,
+            } => *index,
         }
     }
 
@@ -207,9 +242,14 @@ impl Cluster {
             Cluster::Cluster {
                 index: _,
                 total,
+                node_indices: _,
                 children: _,
             } => *total,
-            Cluster::LeafCluster { index: _, nodes } => nodes.len(),
+            Cluster::LeafCluster {
+                index: _,
+                node_indices: _,
+                nodes,
+            } => nodes.len(),
         }
     }
 }
@@ -339,7 +379,7 @@ impl NodeHierarchy {
         depth: usize,
         levels: &mut BTreeMap<usize, BTreeMap<usize, Vec<usize>>>,
     ) {
-        let node_indices = cluster.get_node_indices();
+        let node_indices = cluster.get_node_indices().to_vec();
         levels
             .entry(depth)
             .or_insert(BTreeMap::new())
@@ -348,6 +388,7 @@ impl NodeHierarchy {
         if let Cluster::Cluster {
             index: _,
             total: _,
+            node_indices: _,
             children,
         } = cluster
         {
@@ -372,13 +413,16 @@ impl NodeHierarchy {
         level: usize,
     ) -> Self {
         let mut clusters_map = BTreeMap::new();
-        let mut cluster_sizes = HashMap::new();
+        let mut node_indices_map = HashMap::new();
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
             let cluster = below_level
                 .clusters
                 .remove(&below_cluster_index)
                 .expect("Cluster missing from hierarchy below.");
-            *cluster_sizes.entry(*cluster_index).or_insert(0) += cluster.get_total();
+            node_indices_map
+                .entry(*cluster_index)
+                .or_insert(Vec::new())
+                .extend_from_slice(&cluster.get_node_indices());
             clusters_map
                 .entry(*cluster_index)
                 .or_insert(Vec::new())
@@ -404,11 +448,13 @@ impl NodeHierarchy {
 
         let mut clusters = BTreeMap::new();
         for (cluster_index, children) in clusters_map.into_iter() {
+            let node_indices = node_indices_map.remove(&cluster_index).unwrap();
             clusters.insert(
                 cluster_index,
                 Cluster::Cluster {
                     index: cluster_index,
-                    total: *cluster_sizes.get(&cluster_index).unwrap(),
+                    total: node_indices.len(),
+                    node_indices,
                     children,
                 },
             );
@@ -417,8 +463,8 @@ impl NodeHierarchy {
     }
 
     fn connect_clusters(
-        nodes_lhs: Vec<usize>,
-        nodes_rhs: Vec<usize>,
+        nodes_lhs: &[usize],
+        nodes_rhs: &[usize],
         dis_matrix: &Array2<i32>,
     ) -> BTreeMap<usize, Vec<usize>> {
         // Make sure that nodes_lhs is always equal or smaller than nodes_rhs.
@@ -440,9 +486,9 @@ impl NodeHierarchy {
 
             // Build weight matrix for Hungarian algo.
             let nodes_lhs_ = if nodes_lhs.len() > unassigned_rhs.len() {
-                nodes_lhs[..unassigned_rhs.len()].to_vec()
+                &nodes_lhs[..unassigned_rhs.len()]
             } else {
-                nodes_lhs.clone()
+                nodes_lhs
             };
             let mut weights = Matrix::new(nodes_lhs_.len(), unassigned_rhs.len(), i32::MAX);
             for (i, node_lhs) in nodes_lhs_.iter().enumerate() {
@@ -481,6 +527,7 @@ impl NodeHierarchy {
                 *cluster_index,
                 Cluster::LeafCluster {
                     index: *cluster_index,
+                    node_indices: nodes.iter().map(|node| node.index).collect(),
                     nodes,
                 },
             );
@@ -578,7 +625,7 @@ mod tests {
     #[test]
     fn test_new_bar() {
         //let points = get_random_points(100, 10);
-        let num_points = 100;
+        let num_points = 1000;
         let cluster_size = 5;
         let points = get_random_points(num_points, num_points / cluster_size);
         let matrix = get_distance_matrix(&points);
@@ -607,6 +654,7 @@ mod tests {
         for (&i, node_hierarchy) in node_hierarchy.clusters.iter() {
             if let Cluster::LeafCluster {
                 index: _index,
+                node_indices: _,
                 nodes,
             } = node_hierarchy
             {
@@ -680,11 +728,17 @@ mod tests {
             if let Cluster::Cluster {
                 index: cluster_index,
                 total: _,
+                node_indices: _,
                 children,
             } = cluster
             {
                 for (leaf_index, child) in children.iter().enumerate() {
-                    if let Cluster::LeafCluster { index: _, nodes } = child {
+                    if let Cluster::LeafCluster {
+                        index: _,
+                        node_indices: _,
+                        nodes,
+                    } = child
+                    {
                         let node_indices: Vec<usize> =
                             nodes.iter().map(|node| node.index).collect();
                         assert_eq!(node_indices, target_cluster[*cluster_index][leaf_index]);
