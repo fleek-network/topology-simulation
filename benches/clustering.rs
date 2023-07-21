@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ndarray::Array2;
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::{self, Rng};
@@ -65,7 +65,7 @@ fn criterion_benchmark(c: &mut Criterion) {
             let clusters = (size + 7) / 8;
             let points = get_random_points(*size, clusters);
             let matrix = get_distance_matrix(&points);
-            b.iter(|| run_fasterpam(&matrix, clusters))
+            b.iter(|| run_fasterpam(black_box(&matrix), clusters))
         });
 
         c.bench_with_input(
@@ -75,7 +75,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 let clusters = (size + 7) / 8;
                 let points = get_random_points(*size, clusters);
                 let matrix = get_distance_matrix(&points);
-                b.iter(|| run_constrained_fasterpam(&matrix, clusters))
+                b.iter(|| run_constrained_fasterpam(black_box(&matrix), clusters))
             },
         );
     }
