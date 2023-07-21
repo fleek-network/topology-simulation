@@ -1,4 +1,4 @@
-use clustering::divisive::DivisiveHierarchy;
+use clustering::{bottom_up::NodeHierarchy, divisive::DivisiveHierarchy};
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use ndarray::Array2;
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
@@ -41,6 +41,18 @@ fn run_divisive_constrained_fasterpam(dis_matrix: &Array2<f64>) -> DivisiveHiera
     DivisiveHierarchy::new(dis_matrix, 8)
 }
 
+fn run_bottom_up_clustering(dis_matrix: &Array2<f64>) -> NodeHierarchy {
+    let target_size = 8;
+    let num_clusters = dis_matrix.shape()[0] / target_size;
+    NodeHierarchy::new(
+        dis_matrix,
+        num_clusters,
+        target_size - 1,
+        target_size + 1,
+        100,
+    )
+}
+
 fn criterion_benchmark(c: &mut Criterion) {
     let sizes = vec![1000, 2000, 5000, 10000, 20000];
     let mut c = c.benchmark_group("Hierarchy");
@@ -55,6 +67,17 @@ fn criterion_benchmark(c: &mut Criterion) {
                 let points = get_random_points(*size, clusters);
                 let matrix = get_distance_matrix(&points);
                 b.iter(|| run_divisive_constrained_fasterpam(black_box(&matrix)))
+            },
+        );
+
+        c.bench_with_input(
+            BenchmarkId::new("Bottom Up Clustering", size),
+            &size,
+            |b, size| {
+                let clusters = (size + 7) / 8;
+                let points = get_random_points(*size, clusters);
+                let matrix = get_distance_matrix(&points);
+                b.iter(|| run_bottom_up_clustering(black_box(&matrix)))
             },
         );
 
