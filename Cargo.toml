@@ -26,5 +26,9 @@ mcmf = "2.0.0"
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
-name = "kmedoids"
+name = "clustering"
+harness = false
+
+[[bench]]
+name = "hierarchy"
 harness = false
