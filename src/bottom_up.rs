@@ -1,16 +1,58 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use crate::cluster_into_pairs;
 use crate::constrained_fasterpam;
+use crate::types::{SerializedLayer, SerializedNode};
 use ndarray::{Array, Array2};
 use pathfinding::prelude::{kuhn_munkres_min, Matrix};
 use serde::{Deserialize, Serialize};
+
+impl From<NodeHierarchy> for SerializedLayer {
+    fn from(value: NodeHierarchy) -> Self {
+        let children: Vec<SerializedLayer> = value
+            .clusters
+            .into_iter()
+            .map(|(_index, cluster)| cluster.into())
+            .collect();
+        SerializedLayer::Group {
+            id: "".to_string(),
+            total: 0,
+            children,
+        }
+    }
+}
+
+impl From<Cluster> for SerializedLayer {
+    fn from(value: Cluster) -> Self {
+        let level_path = Vec::new();
+        value.to_serialized_layer(1, level_path)
+    }
+}
+
+impl From<Node> for SerializedNode {
+    fn from(value: Node) -> Self {
+        let connections: Vec<Vec<usize>> = value
+            .connections
+            .borrow()
+            .clone()
+            .into_iter()
+            .rev()
+            .map(|(_level, indices)| indices)
+            .collect();
+        Self {
+            id: value.index,
+            connections,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Cluster {
     Cluster {
         index: usize,
+        total: usize,
         children: Vec<Cluster>,
     },
     LeafCluster {
@@ -26,9 +68,44 @@ impl std::fmt::Display for Cluster {
 }
 
 impl Cluster {
+    fn to_serialized_layer(&self, level: usize, mut level_path: Vec<String>) -> SerializedLayer {
+        match self {
+            Cluster::Cluster {
+                index,
+                total,
+                children,
+            } => {
+                level_path.push(index.to_string());
+                let id = level_path.join(".");
+                let serialized_children: Vec<SerializedLayer> = children
+                    .iter()
+                    .map(|cluster| cluster.to_serialized_layer(level + 1, level_path.clone()))
+                    .collect();
+                SerializedLayer::Group {
+                    id,
+                    total: *total,
+                    children: serialized_children,
+                }
+            },
+            Cluster::LeafCluster { index, nodes } => {
+                let serialized_nodes: Vec<SerializedNode> =
+                    nodes.iter().map(|node| node.clone().into()).collect();
+                level_path.push(index.to_string());
+                SerializedLayer::Cluster {
+                    id: level_path.join("."),
+                    nodes: serialized_nodes,
+                }
+            },
+        }
+    }
+
     fn add_connections(&self, level: usize, connection_map: &BTreeMap<usize, Vec<usize>>) {
         match self {
-            Cluster::Cluster { index: _, children } => {
+            Cluster::Cluster {
+                index: _,
+                total: _,
+                children,
+            } => {
                 children
                     .iter()
                     .for_each(|child| child.add_connections(level, connection_map));
@@ -72,7 +149,11 @@ impl Cluster {
 
     fn _get_node_indices(cluster: &Cluster, indices: &mut Vec<usize>) {
         match cluster {
-            Cluster::Cluster { index: _, children } => {
+            Cluster::Cluster {
+                index: _,
+                total: _,
+                children,
+            } => {
                 children
                     .iter()
                     .for_each(|child| Cluster::_get_node_indices(child, indices));
@@ -87,7 +168,11 @@ impl Cluster {
         let mut s = Vec::new();
         let whitespace = vec!["  "; depth].join("");
         match self {
-            Cluster::Cluster { index, children } => {
+            Cluster::Cluster {
+                index,
+                total: _,
+                children,
+            } => {
                 s.push(format!("{}Cluster ( index: {} )", whitespace, index));
                 for cluster in children.iter() {
                     s.push(cluster.get_string_rep(depth + 1));
@@ -106,8 +191,23 @@ impl Cluster {
 
     fn get_index(&self) -> usize {
         match self {
-            Cluster::Cluster { index, children: _ } => *index,
+            Cluster::Cluster {
+                index,
+                total: _,
+                children: _,
+            } => *index,
             Cluster::LeafCluster { index, nodes: _ } => *index,
+        }
+    }
+
+    fn get_total(&self) -> usize {
+        match self {
+            Cluster::Cluster {
+                index: _,
+                total,
+                children: _,
+            } => *total,
+            Cluster::LeafCluster { index: _, nodes } => nodes.len(),
         }
     }
 }
@@ -243,7 +343,12 @@ impl NodeHierarchy {
             .or_insert(BTreeMap::new())
             .insert(cluster.get_index(), node_indices);
 
-        if let Cluster::Cluster { index: _, children } = cluster {
+        if let Cluster::Cluster {
+            index: _,
+            total: _,
+            children,
+        } = cluster
+        {
             children
                 .iter()
                 .for_each(|child| NodeHierarchy::_get_assignments_map(child, depth + 1, levels));
@@ -265,11 +370,13 @@ impl NodeHierarchy {
         level: usize,
     ) -> Self {
         let mut clusters_map = BTreeMap::new();
+        let mut cluster_sizes = HashMap::new();
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
             let cluster = below_level
                 .clusters
                 .remove(&below_cluster_index)
                 .expect("Cluster missing from hierarchy below.");
+            *cluster_sizes.entry(*cluster_index).or_insert(0) += cluster.get_total();
             clusters_map
                 .entry(*cluster_index)
                 .or_insert(Vec::new())
@@ -299,6 +406,7 @@ impl NodeHierarchy {
                 cluster_index,
                 Cluster::Cluster {
                     index: cluster_index,
+                    total: *cluster_sizes.get(&cluster_index).unwrap(),
                     children,
                 },
             );
@@ -458,6 +566,8 @@ impl NodeHierarchy {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use ndarray::Array2;
     use ndarray_rand::rand_distr::{Distribution, UnitDisc};
     use rand::{self, Rng};
@@ -501,11 +611,11 @@ mod tests {
     #[test]
     fn test_new_bar() {
         //let points = get_random_points(100, 10);
-        let num_points = 20;
+        let num_points = 100;
         let cluster_size = 5;
         let points = get_random_points(num_points, num_points / cluster_size);
         let matrix = get_distance_matrix(&points);
-        //let node_hierarchy = NodeHierarchy::new(&matrix, 10, 8, 12, 100);
+        let now = Instant::now();
         let node_hierarchy = NodeHierarchy::new(
             &matrix,
             num_points / cluster_size,
@@ -513,11 +623,8 @@ mod tests {
             cluster_size,
             100,
         );
-        println!("{node_hierarchy}");
-        println!();
-        println!("{node_hierarchy:?}");
-        println!();
-        println!("{:?}", node_hierarchy.get_assignments());
+        let elapsed = now.elapsed();
+        println!("duration: {elapsed:?}");
     }
 
     #[test]
