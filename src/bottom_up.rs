@@ -11,14 +11,16 @@ use serde::{Deserialize, Serialize};
 
 impl From<NodeHierarchy> for SerializedLayer {
     fn from(value: NodeHierarchy) -> Self {
-        let children: Vec<SerializedLayer> = value
-            .clusters
-            .into_iter()
-            .map(|(_index, cluster)| cluster.into())
-            .collect();
+        let mut children: Vec<SerializedLayer> = Vec::new();
+        let mut total = 0;
+        let level_path = vec!["0".to_string()];
+        for (_index, child) in value.clusters.into_iter() {
+            total += child.get_total();
+            children.push(child.to_serialized_layer(level_path.clone()));
+        }
         SerializedLayer::Group {
-            id: "".to_string(),
-            total: 0,
+            id: "0".to_string(),
+            total,
             children,
         }
     }
@@ -27,7 +29,7 @@ impl From<NodeHierarchy> for SerializedLayer {
 impl From<Cluster> for SerializedLayer {
     fn from(value: Cluster) -> Self {
         let level_path = Vec::new();
-        value.to_serialized_layer(1, level_path)
+        value.to_serialized_layer(level_path)
     }
 }
 
@@ -68,7 +70,7 @@ impl std::fmt::Display for Cluster {
 }
 
 impl Cluster {
-    fn to_serialized_layer(&self, level: usize, mut level_path: Vec<String>) -> SerializedLayer {
+    fn to_serialized_layer(&self, mut level_path: Vec<String>) -> SerializedLayer {
         match self {
             Cluster::Cluster {
                 index,
@@ -79,7 +81,7 @@ impl Cluster {
                 let id = level_path.join(".");
                 let serialized_children: Vec<SerializedLayer> = children
                     .iter()
-                    .map(|cluster| cluster.to_serialized_layer(level + 1, level_path.clone()))
+                    .map(|cluster| cluster.to_serialized_layer(level_path.clone()))
                     .collect();
                 SerializedLayer::Group {
                     id,
@@ -616,7 +618,7 @@ mod tests {
         let points = get_random_points(num_points, num_points / cluster_size);
         let matrix = get_distance_matrix(&points);
         let now = Instant::now();
-        let node_hierarchy = NodeHierarchy::new(
+        let _node_hierarchy = NodeHierarchy::new(
             &matrix,
             num_points / cluster_size,
             cluster_size,
@@ -712,6 +714,7 @@ mod tests {
         for (_, cluster) in node_hierarchy.clusters.iter() {
             if let Cluster::Cluster {
                 index: cluster_index,
+                total: _,
                 children,
             } = cluster
             {

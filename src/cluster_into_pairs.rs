@@ -125,7 +125,7 @@ mod tests {
     use super::cluster;
 
     #[test]
-    fn test_xx() {
+    fn test_basic() {
         let mut matrix = Array::zeros((5, 5));
         matrix[[0, 0]] = 0.0;
         matrix[[0, 1]] = 3.0;
