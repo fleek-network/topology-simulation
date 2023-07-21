@@ -1,9 +1,11 @@
-use std::collections::{BTreeMap, HashMap};
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 
-use ndarray::{iter::IndexedIterMut, Array, Array2};
-use serde::{Deserialize, Serialize};
-
+use crate::cluster_into_pairs;
 use crate::constrained_fasterpam;
+use ndarray::{Array, Array2};
+use pathfinding::prelude::{kuhn_munkres_min, Matrix};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum Cluster {
@@ -24,6 +26,27 @@ impl std::fmt::Display for Cluster {
 }
 
 impl Cluster {
+    fn add_connections(&self, level: usize, connection_map: &BTreeMap<usize, Vec<usize>>) {
+        match self {
+            Cluster::Cluster { index: _, children } => {
+                children
+                    .iter()
+                    .for_each(|child| child.add_connections(level, connection_map));
+            },
+            Cluster::LeafCluster { index: _, nodes } => {
+                for node in nodes.iter() {
+                    if let Some(node_indices) = connection_map.get(&node.index) {
+                        node.connections
+                            .borrow_mut()
+                            .entry(level)
+                            .or_insert(Vec::new())
+                            .extend_from_slice(node_indices);
+                    }
+                }
+            },
+        }
+    }
+
     fn get_node_indices(&self) -> Vec<usize> {
         let mut indices = Vec::new();
         Cluster::_get_node_indices(self, &mut indices);
@@ -90,26 +113,23 @@ pub struct NodeHierarchy {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Node {
     index: usize,
-    connection_indices: Vec<Vec<usize>>,
+    connections: RefCell<BTreeMap<usize, Vec<usize>>>,
 }
 
 impl Node {
     pub fn new(index: usize) -> Self {
         Self {
             index,
-            connection_indices: Vec::new(),
+            connections: RefCell::new(BTreeMap::new()),
         }
     }
 
-    pub fn add_connection(&mut self, node_index: usize, level: usize) {
-        if self.connection_indices.len() < level + 1 {
-            let missing_levels = 1 + level - self.connection_indices.len();
-            (0..missing_levels).for_each(|_| self.connection_indices.push(vec![]));
-        }
-        // TODO: this check might not be necessary. Otherwise use a set.
-        if !self.connection_indices[level].contains(&node_index) {
-            self.connection_indices[level].push(node_index);
-        }
+    pub fn add_connection(&self, node_index: usize, level: usize) {
+        self.connections
+            .borrow_mut()
+            .entry(level)
+            .or_insert(Vec::new())
+            .push(node_index);
     }
 }
 
@@ -134,37 +154,41 @@ impl NodeHierarchy {
             init_max_size,
         );
 
+        // TODO: connect nodes to each node in the cluster
+
         let mut medoids = meds;
-        let mut depth = 0;
+        let mut level = 0;
         let mut assignment = assignment;
 
-        let mut level = NodeHierarchy::new_leaf_hierarchy(&assignment);
+        let mut hierarchy = NodeHierarchy::new_leaf_hierarchy(&assignment);
 
         loop {
             let new_dis_matrix = NodeHierarchy::build_matrix(dis_matrix, &medoids);
             //let new_dis_matrix = NodeHierarchy::build_matrix_v2(dis_matrix, &medoids, &assignment);
 
-            let mut new_medoids = kmedoids::random_initialization(
-                new_dis_matrix.shape()[0],
-                new_dis_matrix.shape()[0] / 2,
-                &mut rand::thread_rng(),
-            );
+            //let mut new_medoids = kmedoids::random_initialization(
+            //    new_dis_matrix.shape()[0],
+            //    new_dis_matrix.shape()[0] / 2,
+            //    &mut rand::thread_rng(),
+            //);
 
-            let (_, new_assignment, _, _): (f64, _, _, _) =
-                constrained_fasterpam::fasterpam(&new_dis_matrix, &mut new_medoids, max_iter, 2, 2);
+            //let (_, new_assignment, _, _): (f64, _, _, _) =
+            //    constrained_fasterpam::fasterpam(&new_dis_matrix, &mut new_medoids, max_iter, 2, 2);
+            let (new_assignment, new_medoids) = cluster_into_pairs::cluster(&new_dis_matrix);
 
-            let new_level = NodeHierarchy::new_hierarchy(&mut level, &new_assignment);
+            let new_hierarchy =
+                NodeHierarchy::new_hierarchy(&mut hierarchy, dis_matrix, &new_assignment, level);
 
             medoids = new_medoids;
-            level = new_level;
-            depth += 1;
+            hierarchy = new_hierarchy;
+            level += 1;
             assignment = new_assignment;
 
-            if medoids.len() <= 3 {
+            if medoids.len() <= 2 {
                 break;
             }
         }
-        level
+        hierarchy
     }
 
     pub fn get_assignments(&self) -> BTreeMap<usize, Vec<usize>> {
@@ -189,11 +213,11 @@ impl NodeHierarchy {
         let mut levels = BTreeMap::new();
         self.clusters
             .values()
-            .for_each(|cluster| NodeHierarchy::_get_assignments(cluster, 0, &mut levels));
+            .for_each(|cluster| NodeHierarchy::_get_assignments_map(cluster, 0, &mut levels));
         levels
     }
 
-    fn _get_assignments(
+    fn _get_assignments_map(
         cluster: &Cluster,
         depth: usize,
         levels: &mut BTreeMap<usize, BTreeMap<usize, Vec<usize>>>,
@@ -207,11 +231,24 @@ impl NodeHierarchy {
         if let Cluster::Cluster { index: _, children } = cluster {
             children
                 .iter()
-                .for_each(|child| NodeHierarchy::_get_assignments(child, depth + 1, levels));
+                .for_each(|child| NodeHierarchy::_get_assignments_map(child, depth + 1, levels));
         }
     }
 
-    fn new_hierarchy(below_level: &mut NodeHierarchy, assignment: &[usize]) -> Self {
+    fn get_node_indices(&self) -> Vec<usize> {
+        let mut nodes = Vec::new();
+        for (_, cluster) in self.clusters.iter() {
+            nodes.extend(cluster.get_node_indices());
+        }
+        nodes
+    }
+
+    fn new_hierarchy(
+        below_level: &mut NodeHierarchy,
+        dis_matrix: &Array2<f64>,
+        assignment: &[usize],
+        level: usize,
+    ) -> Self {
         // TODO: merge clusters that aren't non-leaf clusters using hungarian algo
         let mut clusters_map = BTreeMap::new();
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
@@ -224,6 +261,24 @@ impl NodeHierarchy {
                 .or_insert(Vec::new())
                 .push(cluster);
         }
+
+        // Connect nodes that were merged into a cluster
+        for (_, clusters) in clusters_map.iter_mut() {
+            for (i, cluster_lhs) in clusters.iter().enumerate() {
+                for cluster_rhs in clusters[i + 1..].iter() {
+                    let node_indices_lhs = cluster_lhs.get_node_indices();
+                    let node_indices_rhs = cluster_rhs.get_node_indices();
+                    let connection_map = NodeHierarchy::connect_clusters(
+                        node_indices_lhs,
+                        node_indices_rhs,
+                        dis_matrix,
+                    );
+                    cluster_lhs.add_connections(level, &connection_map);
+                    cluster_rhs.add_connections(level, &connection_map);
+                }
+            }
+        }
+
         let mut clusters = BTreeMap::new();
         for (cluster_index, children) in clusters_map.into_iter() {
             clusters.insert(
@@ -235,6 +290,57 @@ impl NodeHierarchy {
             );
         }
         NodeHierarchy { clusters }
+    }
+
+    fn connect_clusters(
+        nodes_lhs: Vec<usize>,
+        nodes_rhs: Vec<usize>,
+        dis_matrix: &Array2<f64>,
+    ) -> BTreeMap<usize, Vec<usize>> {
+        // Make sure that nodes_lhs is always equal or smaller than nodes_rhs.
+        if nodes_lhs.len() > nodes_rhs.len() {
+            return NodeHierarchy::connect_clusters(nodes_rhs, nodes_lhs, dis_matrix);
+        }
+
+        let mut connection_map = BTreeMap::new();
+        loop {
+            // Some nodes in nodes_rhs might not have been assigned if node_rhs.len() > node_lhs.len()
+            let unassigned_rhs: Vec<usize> = nodes_rhs
+                .iter()
+                .filter(|index| !connection_map.contains_key(*index))
+                .copied()
+                .collect();
+            if unassigned_rhs.is_empty() {
+                break;
+            }
+
+            // Build weight matrix for Hungarian algo.
+            let nodes_lhs_ = if nodes_lhs.len() > unassigned_rhs.len() {
+                nodes_lhs[..unassigned_rhs.len()].to_vec()
+            } else {
+                nodes_lhs.clone()
+            };
+            let mut weights = Matrix::new(nodes_lhs_.len(), unassigned_rhs.len(), i32::MAX);
+            for (i, node_lhs) in nodes_lhs_.iter().enumerate() {
+                for (j, node_rhs) in unassigned_rhs.iter().enumerate() {
+                    weights[(i, j)] = (dis_matrix[[*node_lhs, *node_rhs]] * 1000.0) as i32;
+                }
+            }
+
+            let (_, assignment) = kuhn_munkres_min(&weights);
+            assignment.iter().enumerate().for_each(|(i, &j)| {
+                connection_map
+                    .entry(nodes_lhs_[i])
+                    .or_insert(Vec::new())
+                    .push(unassigned_rhs[j]);
+
+                connection_map
+                    .entry(unassigned_rhs[j])
+                    .or_insert(Vec::new())
+                    .push(nodes_lhs_[i]);
+            });
+        }
+        connection_map
     }
 
     fn new_leaf_hierarchy(assignment: &[usize]) -> Self {
@@ -308,8 +414,6 @@ impl NodeHierarchy {
         }
         new_dis_matrix
     }
-
-    fn merge_clusters() {}
 }
 
 #[cfg(test)]
@@ -361,7 +465,6 @@ mod tests {
 
         let mut meds =
             kmedoids::random_initialization(matrix.shape()[0], 4, &mut rand::thread_rng());
-        println!("meds: {:?}", meds);
         println!("nodes: {:?}", matrix.shape()[0]);
         let (_, labels, _, _): (f64, _, _, _) =
             constrained_fasterpam::fasterpam(&matrix, &mut meds, 100, 2, 2);
@@ -369,10 +472,13 @@ mod tests {
     }
 
     #[test]
-    fn test_new() {
-        let points = get_random_points(100, 10);
+    fn test_new_bar() {
+        //let points = get_random_points(100, 10);
+        let num_points = 210;
+        let points = get_random_points(num_points, 10);
         let matrix = get_distance_matrix(&points);
-        let node_hierarchy = NodeHierarchy::new(&matrix, 10, 8, 12, 100);
+        //let node_hierarchy = NodeHierarchy::new(&matrix, 10, 8, 12, 100);
+        let node_hierarchy = NodeHierarchy::new(&matrix, num_points / 10, 9, 11, 100);
         println!("{node_hierarchy}");
         println!();
         println!("{:?}", node_hierarchy.get_assignments());
@@ -418,7 +524,9 @@ mod tests {
         // cluster_0 : [cluster_0, cluster_2]
         // cluster_1 : [cluster_1, cluster_3]
         let assignment = vec![0, 1, 0, 1];
-        let node_hierarchy = NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &assignment);
+        let matrix = Array2::zeros((2, 2)); // dummy matrix
+        let node_hierarchy =
+            NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &matrix, &assignment, 0);
         let assignment_map = node_hierarchy.get_assignments_map();
         assert_eq!(
             assignment_map.get(&0).unwrap().get(&0).unwrap(),
@@ -453,7 +561,9 @@ mod tests {
         // cluster_0 : [cluster_0, cluster_2]
         // cluster_1 : [cluster_1, cluster_3]
         let assignment = vec![0, 1, 0, 1];
-        let node_hierarchy = NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &assignment);
+        let matrix = Array2::zeros((2, 2)); // dummy matrix
+        let node_hierarchy =
+            NodeHierarchy::new_hierarchy(&mut leaf_hierarchy, &matrix, &assignment, 0);
         assert_eq!(node_hierarchy.clusters.len(), 2);
 
         for (_, cluster) in node_hierarchy.clusters.iter() {

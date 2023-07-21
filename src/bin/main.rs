@@ -5,10 +5,7 @@ use std::{
 };
 
 use base64::Engine;
-use clustering::{
-    constrained_k_medoids::ConstrainedKMedoids,
-    divisive::DivisiveHierarchy,
-};
+use clustering::{constrained_k_medoids::ConstrainedKMedoids, divisive::DivisiveHierarchy};
 use csv::ReaderBuilder;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
@@ -252,7 +249,10 @@ fn run_constrained_alternating(
     (labels, iterations, instant.elapsed())
 }
 
-fn run_dcfpam(dis_matrix: &Array<f64, Dim<[usize; 2]>>, target_n: usize) -> (Vec<Vec<usize>>, Duration) {
+fn run_dcfpam(
+    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
+    target_n: usize,
+) -> (Vec<Vec<usize>>, Duration) {
     let instant = Instant::now();
 
     let hierarchy = DivisiveHierarchy::new(dis_matrix, target_n);
@@ -526,8 +526,14 @@ fn run() {
 
     println!("running bottom up constrained fasterpam");
 
+    /* BOTTOM UP CONSTRAINED FASTERPAM */
+    let num_clusters_bu = if num_clusters % 2 == 1 {
+        num_clusters - 1
+    } else {
+        num_clusters
+    };
     let node_hierarchy =
-        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 10, 11, 100);
+        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters_bu, 9, 11, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
