@@ -24,24 +24,25 @@ fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array2<f64> {
     points
 }
 
-fn get_distance_matrix(data: &Array2<f64>) -> Array2<f64> {
+fn get_distance_matrix(data: &Array2<f64>) -> Array2<i32> {
     let mut dist = Array2::zeros((data.shape()[0], data.shape()[0]));
     for i in 0..data.shape()[0] {
         for j in 0..data.shape()[0] {
             if i != j {
-                dist[[i, j]] =
-                    (data[[i, 0]] - data[[j, 0]]).powi(2) + (data[[i, 1]] - data[[j, 1]]).powi(2);
+                dist[[i, j]] = (((data[[i, 0]] - data[[j, 0]]).powi(2)
+                    + (data[[i, 1]] - data[[j, 1]]).powi(2))
+                    * 1000.0) as i32;
             }
         }
     }
     dist
 }
 
-fn run_divisive_constrained_fasterpam(dis_matrix: &Array2<f64>) -> DivisiveHierarchy {
+fn run_divisive_constrained_fasterpam(dis_matrix: &Array2<i32>) -> DivisiveHierarchy {
     DivisiveHierarchy::new(dis_matrix, 8)
 }
 
-fn run_bottom_up_clustering(dis_matrix: &Array2<f64>) -> NodeHierarchy {
+fn run_bottom_up_clustering(dis_matrix: &Array2<i32>) -> NodeHierarchy {
     let target_size = 8;
     let num_clusters = dis_matrix.shape()[0] / target_size;
     NodeHierarchy::new(

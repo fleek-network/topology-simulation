@@ -23,20 +23,21 @@ fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array2<f64> {
     points
 }
 
-fn get_distance_matrix(data: &Array2<f64>) -> Array2<f64> {
+fn get_distance_matrix(data: &Array2<f64>) -> Array2<i32> {
     let mut dist = Array2::zeros((data.shape()[0], data.shape()[0]));
     for i in 0..data.shape()[0] {
         for j in 0..data.shape()[0] {
             if i != j {
-                dist[[i, j]] =
-                    (data[[i, 0]] - data[[j, 0]]).powi(2) + (data[[i, 1]] - data[[j, 1]]).powi(2);
+                dist[[i, j]] = (((data[[i, 0]] - data[[j, 0]]).powi(2)
+                    + (data[[i, 1]] - data[[j, 1]]).powi(2))
+                    * 1000.0) as i32;
             }
         }
     }
     dist
 }
 
-fn run_fasterpam(dis_matrix: &Array2<f64>, num_clusters: usize) -> (f64, Vec<usize>, usize, usize) {
+fn run_fasterpam(dis_matrix: &Array2<i32>, num_clusters: usize) -> (f64, Vec<usize>, usize, usize) {
     let mut meds = kmedoids::random_initialization(
         dis_matrix.shape()[0],
         num_clusters,
@@ -46,7 +47,7 @@ fn run_fasterpam(dis_matrix: &Array2<f64>, num_clusters: usize) -> (f64, Vec<usi
 }
 
 fn run_constrained_fasterpam(
-    dis_matrix: &Array2<f64>,
+    dis_matrix: &Array2<i32>,
     num_clusters: usize,
 ) -> (f64, Vec<usize>, usize, usize) {
     let mut meds = kmedoids::random_initialization(

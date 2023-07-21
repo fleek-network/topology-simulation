@@ -205,7 +205,7 @@ fn scatter_plot(
 }
 
 fn run_fasterpam(
-    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
+    dis_matrix: &Array<i32, Dim<[usize; 2]>>,
     num_clusters: usize,
 ) -> (Vec<usize>, usize, Duration) {
     let mut meds = kmedoids::random_initialization(
@@ -389,7 +389,7 @@ fn toy_example() {
         }
     }
 
-    let (assignment, _, _) = run_fasterpam(&dis_matrix, 3);
+    let (assignment, _, _) = run_fasterpam(&dis_matrix_i32, 3);
     scatter_plot(&mut plot_buffer, &data, &assignment, "FasterPAM");
 
     let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix_i32, 3, 4, 12);
@@ -459,11 +459,9 @@ fn run() {
     );
 
     let mut dissim_matrix = Array::zeros((matrix.len(), matrix.len()));
-    let mut dissim_matrix_i32 = Array::zeros((matrix.len(), matrix.len()));
     for i in 0..matrix.len() {
         for j in 0..matrix.len() {
-            dissim_matrix[[i, j]] = matrix[i][j] as f64;
-            dissim_matrix_i32[[i, j]] = (matrix[i][j] * 1000.0) as i32;
+            dissim_matrix[[i, j]] = (matrix[i][j] * 1000.0) as i32;
         }
     }
 
@@ -502,7 +500,7 @@ fn run() {
     eprintln!("running constrained fasterpam");
 
     let (assignment, c_fasterpam_num_iterations, c_fasterpam_duration) =
-        run_constrained_fasterpam(&dissim_matrix_i32, num_clusters, 8, 10);
+        run_constrained_fasterpam(&dissim_matrix, num_clusters, 8, 10);
     scatter_plot(
         &mut plot_buffer,
         &data_points,
@@ -518,7 +516,7 @@ fn run() {
 
     eprintln!("running divisive constrained fasterpam");
 
-    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix_i32, 20);
+    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix, 20);
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
     for (depth, assignment) in hierarchy_assignments.iter().skip(1).enumerate() {
         scatter_plot(
@@ -540,7 +538,7 @@ fn run() {
 
     /* BOTTOM UP CONSTRAINED FASTERPAM */
     let node_hierarchy =
-        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix_i32, num_clusters, 9, 11, 100);
+        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 9, 11, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
     let serialized_layer: SerializedLayer = node_hierarchy.into();
