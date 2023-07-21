@@ -60,6 +60,8 @@ fn run_constrained_fasterpam(
 fn criterion_benchmark(c: &mut Criterion) {
     let sizes = vec![1000, 2000, 5000, 10000, 20000];
 
+    let mut c = c.benchmark_group("Clustering");
+
     for size in sizes {
         c.bench_with_input(BenchmarkId::new("FasterPAM", size), &size, |b, size| {
             let clusters = (size + 7) / 8;

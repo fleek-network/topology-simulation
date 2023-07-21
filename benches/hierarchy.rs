@@ -43,6 +43,8 @@ fn run_divisive_constrained_fasterpam(dis_matrix: &Array2<f64>) -> DivisiveHiera
 
 fn criterion_benchmark(c: &mut Criterion) {
     let sizes = vec![1000, 2000, 5000, 10000, 20000];
+    let mut c = c.benchmark_group("Hierarchy");
+    c.sample_size(20);
 
     for size in sizes {
         c.bench_with_input(
