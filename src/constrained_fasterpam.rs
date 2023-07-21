@@ -144,22 +144,23 @@ where
 }
 
 /// Debug helper function
-pub(crate) fn debug_assert_assignment<M, N>(_mat: &M, _med: &[usize], _data: &[Rec<N>])
+#[cfg(debug_assertions)]
+pub(crate) fn debug_assert_assignment<M, N>(mat: &M, med: &[usize], data: &[Rec<N>])
 where
     N: PartialOrd + Copy,
     M: ArrayAdapter<N>,
 {
-    for o in 0.._mat.len() {
+    for o in 0..mat.len() {
         debug_assert!(
-            _mat.get(o, _med[_data[o].near.i as usize]) == _data[o].near.d,
+            mat.get(o, med[data[o].near.i as usize]) == data[o].near.d,
             "primary assignment inconsistent"
         );
         debug_assert!(
-            _mat.get(o, _med[_data[o].seco.i as usize]) == _data[o].seco.d,
+            mat.get(o, med[data[o].seco.i as usize]) == data[o].seco.d,
             "secondary assignment inconsistent"
         );
         debug_assert!(
-            _data[o].near.d <= _data[o].seco.d,
+            data[o].near.d <= data[o].seco.d,
             "nearest is farther than second nearest"
         );
     }
@@ -216,6 +217,7 @@ where
     }
     let (mut loss, mut data) = initial_assignment(mat, med);
 
+    #[cfg(debug_assertions)]
     debug_assert_assignment(mat, med, &data);
 
     let mut removal_loss = vec![L::zero(); k];
