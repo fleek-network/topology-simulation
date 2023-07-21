@@ -5,7 +5,9 @@ use std::{
 };
 
 use base64::Engine;
-use clustering::{constrained_k_medoids::ConstrainedKMedoids, divisive::DivisiveHierarchy};
+use clustering::{
+    constrained_k_medoids::ConstrainedKMedoids, divisive::DivisiveHierarchy, types::SerializedLayer,
+};
 use csv::ReaderBuilder;
 use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
@@ -13,6 +15,7 @@ use plotters::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
+use std::io::Write;
 
 const FONT: &str = "IBM Plex Mono, monospace";
 
@@ -530,6 +533,11 @@ fn run() {
     let node_hierarchy =
         clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 9, 11, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
+
+    let serialized_layer: SerializedLayer = node_hierarchy.into();
+    let bottom_up_json = serde_json::to_string_pretty(&serialized_layer).unwrap();
+    let mut output = std::fs::File::create("bottom_up_clustering.json").unwrap();
+    write!(output, "{}", bottom_up_json).unwrap();
 
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
     let num_levels = hierarchy_assignments.len();

@@ -13,13 +13,13 @@ impl From<NodeHierarchy> for SerializedLayer {
     fn from(value: NodeHierarchy) -> Self {
         let mut children: Vec<SerializedLayer> = Vec::new();
         let mut total = 0;
-        let level_path = vec!["0".to_string()];
+        let level_path = vec![];
         for (_index, child) in value.clusters.into_iter() {
             total += child.get_total();
             children.push(child.to_serialized_layer(level_path.clone()));
         }
         SerializedLayer::Group {
-            id: "0".to_string(),
+            id: "root".to_string(),
             total,
             children,
         }
