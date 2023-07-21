@@ -158,7 +158,6 @@ impl NodeHierarchy {
 
         let mut medoids = meds;
         let mut level = 0;
-        let mut assignment = assignment;
 
         let mut hierarchy = NodeHierarchy::new_leaf_hierarchy(&assignment);
 
@@ -182,7 +181,6 @@ impl NodeHierarchy {
             medoids = new_medoids;
             hierarchy = new_hierarchy;
             level += 1;
-            assignment = new_assignment;
 
             if medoids.len() <= 2 {
                 break;
@@ -235,7 +233,7 @@ impl NodeHierarchy {
         }
     }
 
-    fn get_node_indices(&self) -> Vec<usize> {
+    fn _get_node_indices(&self) -> Vec<usize> {
         let mut nodes = Vec::new();
         for (_, cluster) in self.clusters.iter() {
             nodes.extend(cluster.get_node_indices());
@@ -365,8 +363,8 @@ impl NodeHierarchy {
     }
 
     fn build_matrix(dis_matrix: &Array2<f64>, medoids: &[usize]) -> Array2<f64> {
-        let mut medoids = medoids.to_vec();
-        medoids.sort();
+        //let mut medoids = medoids.to_vec();
+        //medoids.sort();
         let mut new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
         for (i_new, &i) in medoids.iter().enumerate() {
             for (j_new, &j) in medoids.iter().enumerate() {
@@ -379,7 +377,7 @@ impl NodeHierarchy {
         new_dis_matrix
     }
 
-    fn build_matrix_v2(
+    fn _build_matrix_v2(
         dis_matrix: &Array2<f64>,
         medoids: &[usize],
         assignment: &[usize],
@@ -423,7 +421,7 @@ mod tests {
     use rand::{self, Rng};
 
     use super::Cluster;
-    use crate::{bottom_up::NodeHierarchy, constrained_fasterpam};
+    use crate::bottom_up::NodeHierarchy;
 
     fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array2<f64> {
         let mut points = Array2::zeros((num_nodes, 2));
@@ -459,26 +457,20 @@ mod tests {
     }
 
     #[test]
-    fn test_foo() {
-        let points = get_random_points(10, 5);
-        let matrix = get_distance_matrix(&points);
-
-        let mut meds =
-            kmedoids::random_initialization(matrix.shape()[0], 4, &mut rand::thread_rng());
-        println!("nodes: {:?}", matrix.shape()[0]);
-        let (_, labels, _, _): (f64, _, _, _) =
-            constrained_fasterpam::fasterpam(&matrix, &mut meds, 100, 2, 2);
-        println!("labels: {:?}", labels);
-    }
-
-    #[test]
-    fn test_new_bar() {
+    fn test_new() {
         //let points = get_random_points(100, 10);
-        let num_points = 210;
-        let points = get_random_points(num_points, 10);
+        let num_points = 20;
+        let cluster_size = 5;
+        let points = get_random_points(num_points, num_points / cluster_size);
         let matrix = get_distance_matrix(&points);
         //let node_hierarchy = NodeHierarchy::new(&matrix, 10, 8, 12, 100);
-        let node_hierarchy = NodeHierarchy::new(&matrix, num_points / 10, 9, 11, 100);
+        let node_hierarchy = NodeHierarchy::new(
+            &matrix,
+            num_points / cluster_size,
+            cluster_size,
+            cluster_size,
+            100,
+        );
         println!("{node_hierarchy}");
         println!();
         println!("{:?}", node_hierarchy.get_assignments());
