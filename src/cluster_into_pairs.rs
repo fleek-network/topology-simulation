@@ -5,12 +5,12 @@ use std::collections::{BTreeMap, BinaryHeap, HashSet};
 struct Pair {
     a: usize,
     b: usize,
-    dissimilarity: f64,
+    dissimilarity: i32,
 }
 
 impl std::cmp::PartialEq for Pair {
     fn eq(&self, other: &Self) -> bool {
-        (self.dissimilarity - other.dissimilarity).abs() < f64::EPSILON
+        self.dissimilarity == other.dissimilarity
     }
 }
 
@@ -40,7 +40,7 @@ impl std::cmp::Ord for Pair {
     }
 }
 
-pub fn cluster(dis_matrix: &Array2<f64>) -> (Vec<usize>, Vec<usize>) {
+pub fn cluster(dis_matrix: &Array2<i32>) -> (Vec<usize>, Vec<usize>) {
     let all_nodes: HashSet<usize> = (0..dis_matrix.shape()[0]).collect();
     let mut used_nodes = HashSet::new();
     let mut heap = BinaryHeap::new();
@@ -127,35 +127,35 @@ mod tests {
     #[test]
     fn test_basic() {
         let mut matrix = Array::zeros((5, 5));
-        matrix[[0, 0]] = 0.0;
-        matrix[[0, 1]] = 3.0;
-        matrix[[0, 2]] = 2.0;
-        matrix[[0, 3]] = 4.0;
-        matrix[[0, 4]] = 5.0;
+        matrix[[0, 0]] = 0;
+        matrix[[0, 1]] = 3;
+        matrix[[0, 2]] = 2;
+        matrix[[0, 3]] = 4;
+        matrix[[0, 4]] = 5;
 
-        matrix[[1, 0]] = 3.0;
-        matrix[[1, 1]] = 0.0;
-        matrix[[1, 2]] = 4.0;
-        matrix[[1, 3]] = 2.0;
-        matrix[[1, 4]] = 5.0;
+        matrix[[1, 0]] = 3;
+        matrix[[1, 1]] = 0;
+        matrix[[1, 2]] = 4;
+        matrix[[1, 3]] = 2;
+        matrix[[1, 4]] = 5;
 
-        matrix[[2, 0]] = 2.0;
-        matrix[[2, 1]] = 4.0;
-        matrix[[2, 2]] = 0.0;
-        matrix[[2, 3]] = 3.0;
-        matrix[[2, 4]] = 5.0;
+        matrix[[2, 0]] = 2;
+        matrix[[2, 1]] = 4;
+        matrix[[2, 2]] = 0;
+        matrix[[2, 3]] = 3;
+        matrix[[2, 4]] = 5;
 
-        matrix[[3, 0]] = 4.0;
-        matrix[[3, 1]] = 2.0;
-        matrix[[3, 2]] = 3.0;
-        matrix[[3, 3]] = 0.0;
-        matrix[[3, 4]] = 5.0;
+        matrix[[3, 0]] = 4;
+        matrix[[3, 1]] = 2;
+        matrix[[3, 2]] = 3;
+        matrix[[3, 3]] = 0;
+        matrix[[3, 4]] = 5;
 
-        matrix[[4, 0]] = 4.0;
-        matrix[[4, 1]] = 2.0;
-        matrix[[4, 2]] = 3.0;
-        matrix[[4, 3]] = 0.0;
-        matrix[[4, 4]] = 0.0;
+        matrix[[4, 0]] = 4;
+        matrix[[4, 1]] = 2;
+        matrix[[4, 2]] = 3;
+        matrix[[4, 3]] = 0;
+        matrix[[4, 4]] = 0;
 
         cluster(&matrix);
     }

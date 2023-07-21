@@ -133,7 +133,7 @@ fn add_connection(indeces: &mut [Node], depth: usize, i: usize, j: usize) {
 
 impl DivisiveHierarchy {
     /// Create a new divisive hierarchy using constrained fasterpam and selecting first
-    pub fn new(dissim_matrix: &Array2<f64>, target_n: usize) -> Self {
+    pub fn new(dissim_matrix: &Array2<i32>, target_n: usize) -> Self {
         let nodes: Vec<_> = (0..dissim_matrix.nrows())
             .map(|i| Node {
                 id: i,
@@ -153,7 +153,7 @@ impl DivisiveHierarchy {
 
     fn new_inner<R: Rng>(
         rng: &mut R,
-        dissim_matrix: &Array2<f64>,
+        dissim_matrix: &Array2<i32>,
         mut indeces: Vec<Node>,
         target_n: usize,
         current_path: &HierarchyPath,
@@ -185,7 +185,7 @@ impl DivisiveHierarchy {
             let half = indeces.len() / 2;
             let min = half - 1;
             let max = half + 1;
-            let (_, assignments, _, _) = constrained_fasterpam::fasterpam::<_, f64>(
+            let (_, assignments, _, _) = constrained_fasterpam::fasterpam::<_, i32>(
                 dissim_matrix,
                 &mut medoids,
                 100,
@@ -208,7 +208,7 @@ impl DivisiveHierarchy {
             for i in &clusters[0] {
                 for j in &clusters[1] {
                     let dissim = dissim_matrix[(*i, *j)];
-                    weights.push((dissim * 1000.) as i32);
+                    weights.push(dissim);
                 }
             }
 

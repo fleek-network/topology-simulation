@@ -220,7 +220,7 @@ fn run_fasterpam(
 }
 
 fn run_constrained_fasterpam(
-    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
+    dis_matrix: &Array<i32, Dim<[usize; 2]>>,
     num_clusters: usize,
     min: usize,
     max: usize,
@@ -253,7 +253,7 @@ fn run_constrained_alternating(
 }
 
 fn run_dcfpam(
-    dis_matrix: &Array<f64, Dim<[usize; 2]>>,
+    dis_matrix: &Array<i32, Dim<[usize; 2]>>,
     target_n: usize,
 ) -> (Vec<Vec<usize>>, Duration) {
     let instant = Instant::now();
@@ -382,11 +382,17 @@ fn toy_example() {
     );
 
     let dis_matrix = get_distance_matrix(&data);
+    let mut dis_matrix_i32 = Array::zeros((dis_matrix.shape()[0], dis_matrix.shape()[1]));
+    for i in 0..dis_matrix.shape()[0] {
+        for j in 0..dis_matrix.shape()[1] {
+            dis_matrix_i32[[i, j]] = (dis_matrix[[i, j]] * 1000.0) as i32;
+        }
+    }
 
     let (assignment, _, _) = run_fasterpam(&dis_matrix, 3);
     scatter_plot(&mut plot_buffer, &data, &assignment, "FasterPAM");
 
-    let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix, 3, 4, 12);
+    let (assignment, _, _) = run_constrained_fasterpam(&dis_matrix_i32, 3, 4, 12);
 
     scatter_plot(
         &mut plot_buffer,
@@ -453,11 +459,14 @@ fn run() {
     );
 
     let mut dissim_matrix = Array::zeros((matrix.len(), matrix.len()));
+    let mut dissim_matrix_i32 = Array::zeros((matrix.len(), matrix.len()));
     for i in 0..matrix.len() {
         for j in 0..matrix.len() {
             dissim_matrix[[i, j]] = matrix[i][j] as f64;
+            dissim_matrix_i32[[i, j]] = (matrix[i][j] * 1000.0) as i32;
         }
     }
+
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 10;
     let num_clusters = num_servers / optimal_cluster_size;
@@ -493,7 +502,7 @@ fn run() {
     eprintln!("running constrained fasterpam");
 
     let (assignment, c_fasterpam_num_iterations, c_fasterpam_duration) =
-        run_constrained_fasterpam(&dissim_matrix, num_clusters, 8, 10);
+        run_constrained_fasterpam(&dissim_matrix_i32, num_clusters, 8, 10);
     scatter_plot(
         &mut plot_buffer,
         &data_points,
@@ -509,7 +518,7 @@ fn run() {
 
     eprintln!("running divisive constrained fasterpam");
 
-    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix, 20);
+    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix_i32, 20);
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
     for (depth, assignment) in hierarchy_assignments.iter().skip(1).enumerate() {
         scatter_plot(
@@ -531,7 +540,7 @@ fn run() {
 
     /* BOTTOM UP CONSTRAINED FASTERPAM */
     let node_hierarchy =
-        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix, num_clusters, 9, 11, 100);
+        clustering::bottom_up::NodeHierarchy::new(&dissim_matrix_i32, num_clusters, 9, 11, 100);
     let hierarchy_assignments = node_hierarchy.get_assignments();
 
     let serialized_layer: SerializedLayer = node_hierarchy.into();

@@ -254,7 +254,7 @@ impl Node {
 
 impl NodeHierarchy {
     pub fn new(
-        dis_matrix: &Array2<f64>,
+        dis_matrix: &Array2<i32>,
         init_num_clusters: usize,
         init_min_size: usize,
         init_max_size: usize,
@@ -265,7 +265,7 @@ impl NodeHierarchy {
             init_num_clusters,
             &mut rand::thread_rng(),
         );
-        let (_, assignment, _, _): (f64, _, _, _) = constrained_fasterpam::fasterpam(
+        let (_, assignment, _, _): (i32, _, _, _) = constrained_fasterpam::fasterpam(
             dis_matrix,
             &mut meds,
             max_iter,
@@ -367,7 +367,7 @@ impl NodeHierarchy {
 
     fn new_hierarchy(
         below_level: &mut NodeHierarchy,
-        dis_matrix: &Array2<f64>,
+        dis_matrix: &Array2<i32>,
         assignment: &[usize],
         level: usize,
     ) -> Self {
@@ -419,7 +419,7 @@ impl NodeHierarchy {
     fn connect_clusters(
         nodes_lhs: Vec<usize>,
         nodes_rhs: Vec<usize>,
-        dis_matrix: &Array2<f64>,
+        dis_matrix: &Array2<i32>,
     ) -> BTreeMap<usize, Vec<usize>> {
         // Make sure that nodes_lhs is always equal or smaller than nodes_rhs.
         if nodes_lhs.len() > nodes_rhs.len() {
@@ -447,7 +447,7 @@ impl NodeHierarchy {
             let mut weights = Matrix::new(nodes_lhs_.len(), unassigned_rhs.len(), i32::MAX);
             for (i, node_lhs) in nodes_lhs_.iter().enumerate() {
                 for (j, node_rhs) in unassigned_rhs.iter().enumerate() {
-                    weights[(i, j)] = (dis_matrix[[*node_lhs, *node_rhs]] * 1000.0) as i32;
+                    weights[(i, j)] = dis_matrix[[*node_lhs, *node_rhs]];
                 }
             }
 
@@ -488,7 +488,7 @@ impl NodeHierarchy {
         Self { clusters }
     }
 
-    fn build_matrix(dis_matrix: &Array2<f64>, medoids: &[usize]) -> Array2<f64> {
+    fn build_matrix(dis_matrix: &Array2<i32>, medoids: &[usize]) -> Array2<i32> {
         let mut medoids = medoids.to_vec();
         medoids.sort();
         let mut new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
@@ -509,7 +509,7 @@ impl NodeHierarchy {
             .for_each(|(_, cluster)| cluster.connect_nodes_in_leaf_cluster());
     }
 
-    fn connect_nodes_in_root_clusters(&self, dis_matrix: &Array2<f64>, level: usize) {
+    fn connect_nodes_in_root_clusters(&self, dis_matrix: &Array2<i32>, level: usize) {
         let cluster_indices: Vec<usize> = self.clusters.keys().copied().collect();
         for i in cluster_indices.iter() {
             for j in cluster_indices[i + 1..].iter() {
@@ -527,42 +527,6 @@ impl NodeHierarchy {
                     .add_connections(level, &connection_map);
             }
         }
-    }
-
-    fn _build_matrix_v2(
-        dis_matrix: &Array2<f64>,
-        medoids: &[usize],
-        assignment: &[usize],
-    ) -> Array2<f64> {
-        let mut medoids = medoids.to_vec();
-        medoids.sort();
-        let mut new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
-        let mut clusters = BTreeMap::new();
-        for (node_index, cluster_index) in assignment.iter().enumerate() {
-            clusters
-                .entry(cluster_index)
-                .or_insert(Vec::new())
-                .push(node_index);
-        }
-
-        for (&i, node_indices_i) in clusters.iter() {
-            for (&j, node_indices_j) in clusters.iter() {
-                if i != j {
-                    let mut sum = 0.0;
-                    let mut count = 0;
-                    for &node_i in node_indices_i.iter() {
-                        for &node_j in node_indices_j.iter() {
-                            sum += dis_matrix[[node_i, node_j]];
-                            count += 1;
-                        }
-                    }
-                    if count > 0 {
-                        new_dis_matrix[[*i, *j]] = sum / count as f64;
-                    }
-                }
-            }
-        }
-        new_dis_matrix
     }
 }
 
@@ -597,13 +561,14 @@ mod tests {
         points
     }
 
-    fn get_distance_matrix(data: &Array2<f64>) -> Array2<f64> {
+    fn get_distance_matrix(data: &Array2<f64>) -> Array2<i32> {
         let mut dist = Array2::zeros((data.shape()[0], data.shape()[0]));
         for i in 0..data.shape()[0] {
             for j in 0..data.shape()[0] {
                 if i != j {
-                    dist[[i, j]] = (data[[i, 0]] - data[[j, 0]]).powi(2)
-                        + (data[[i, 1]] - data[[j, 1]]).powi(2);
+                    dist[[i, j]] = (((data[[i, 0]] - data[[j, 0]]).powi(2)
+                        + (data[[i, 1]] - data[[j, 1]]).powi(2))
+                        * 1000.0) as i32;
                 }
             }
         }

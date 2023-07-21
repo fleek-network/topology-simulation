@@ -52,7 +52,7 @@ where
 ///     data: vec![1, 2, 3, 4, 5, 6],
 /// };
 /// let mut meds = vec![0, 1];
-/// let (loss, numswap, numiter, assignment): (f64, _, _, _) =
+/// let (loss, numswap, numiter, assignment): (i32, _, _, _) =
 ///     kmedoids::fasterpam(&data, &mut meds, 10);
 /// println!("Loss is {}", loss);
 /// ```
@@ -196,7 +196,7 @@ where
 /// ```
 /// let data = ndarray::arr2(&[[0, 1, 2, 3], [1, 0, 4, 5], [2, 4, 0, 6], [3, 5, 6, 0]]);
 /// let mut meds = kmedoids::random_initialization(4, 2, &mut rand::thread_rng());
-/// let (loss, assi, n_iter, n_swap): (f64, _, _, _) = kmedoids::fasterpam(&data, &mut meds, 100);
+/// let (loss, assi, n_iter, n_swap): (i32, _, _, _) = kmedoids::fasterpam(&data, &mut meds, 100);
 /// println!("Loss is: {}", loss);
 /// ```
 #[allow(dead_code)]
@@ -208,8 +208,8 @@ pub fn fasterpam<M, L>(
     max: usize,
 ) -> (L, Vec<usize>, usize, usize)
 where
-    L: AddAssign + Signed + Zero + PartialOrd + Copy + From<f64>,
-    M: ArrayAdapter<f64>,
+    L: AddAssign + Signed + Zero + PartialOrd + Copy + From<i32>,
+    M: ArrayAdapter<i32>,
 {
     let (n, k) = (mat.len(), med.len());
     if k == 1 {
@@ -344,7 +344,7 @@ where
 /// - medoid indeces do not have a role (hop used for max constraint)
 /// - medoid' indeces are demand nodes
 /// - one artificial demand node to ensure total demand = total supply
-fn build_solve_graph<M: ArrayAdapter<f64>>(
+fn build_solve_graph<M: ArrayAdapter<i32>>(
     mat: &M,
     medoids: &[usize],
     min: usize,
@@ -391,7 +391,7 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(
             } else {
                 for (offset, &j) in medoids.iter().enumerate() {
                     // supply node -> medoid
-                    let cost = (mat.get(i, j) * 100000.) as i32;
+                    let cost = mat.get(i, j);
                     graph.add_edge(i, total + offset, Capacity(1), Cost(cost));
                 }
             }
@@ -449,7 +449,7 @@ fn build_solve_graph<M: ArrayAdapter<f64>>(
     for (i, assignment) in labels.iter_mut().enumerate() {
         if assignment == &999 {
             let mut best = 999;
-            let mut diff = f64::MAX;
+            let mut diff = i32::MAX;
             for (j, &medoid) in medoids.iter().enumerate() {
                 let diff2 = mat.get(i, medoid);
                 if diff2 < diff {
