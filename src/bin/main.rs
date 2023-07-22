@@ -56,6 +56,10 @@ impl From<Vec<f64>> for ClusterMetrics {
         if min_latency == f64::MAX {
             min_latency = f64::NAN
         }
+        if max_latency == f64::MIN {
+            max_latency = f64::NAN
+        }
+
         Self {
             mean_latency,
             standard_dev_latency,
