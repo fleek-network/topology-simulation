@@ -5,3 +5,6 @@ server*.csv
 *.json
 *.html
 __pycache__
+*.svg
+*.data
+*.data.old

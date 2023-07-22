@@ -4,6 +4,7 @@ use std::collections::HashMap;
 
 use crate::cluster_into_pairs;
 use crate::constrained_fasterpam;
+use crate::pairing;
 use crate::types::{SerializedLayer, SerializedNode};
 use ndarray::{Array, Array2};
 use pathfinding::prelude::{kuhn_munkres_min, Matrix};
@@ -108,7 +109,7 @@ impl Cluster {
         }
     }
 
-    fn add_connections(&self, level: usize, connection_map: &BTreeMap<usize, Vec<usize>>) {
+    fn add_connections(&self, level: usize, connection_map: &HashMap<usize, Vec<usize>>) {
         match self {
             Cluster::Cluster {
                 index: _,
@@ -157,22 +158,6 @@ impl Cluster {
                     }
                 }
             }
-        }
-    }
-
-    fn _get_node_indices(&self) -> Vec<usize> {
-        match self {
-            Cluster::Cluster {
-                index: _,
-                total: _,
-                node_indices,
-                children: _,
-            } => node_indices.clone(),
-            Cluster::LeafCluster {
-                index: _,
-                node_indices: _,
-                nodes,
-            } => nodes.iter().map(|node| node.index).collect(),
         }
     }
 
@@ -266,7 +251,7 @@ impl std::fmt::Display for NodeHierarchy {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct NodeHierarchy {
-    clusters: BTreeMap<usize, Cluster>,
+    clusters: HashMap<usize, Cluster>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -322,6 +307,7 @@ impl NodeHierarchy {
         loop {
             level += 1;
             let new_dis_matrix = NodeHierarchy::build_matrix(dis_matrix, &medoids);
+            //let new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
             //let new_dis_matrix = NodeHierarchy::build_matrix_v2(dis_matrix, &medoids, &assignment);
 
             //let mut new_medoids = kmedoids::random_initialization(
@@ -412,7 +398,7 @@ impl NodeHierarchy {
         assignment: &[usize],
         level: usize,
     ) -> Self {
-        let mut clusters_map = BTreeMap::new();
+        let mut clusters_map = HashMap::new();
         let mut node_indices_map = HashMap::new();
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
             let cluster = below_level
@@ -422,7 +408,7 @@ impl NodeHierarchy {
             node_indices_map
                 .entry(*cluster_index)
                 .or_insert(Vec::new())
-                .extend_from_slice(&cluster.get_node_indices());
+                .extend_from_slice(cluster.get_node_indices());
             clusters_map
                 .entry(*cluster_index)
                 .or_insert(Vec::new())
@@ -435,7 +421,7 @@ impl NodeHierarchy {
                 for cluster_rhs in clusters[i + 1..].iter() {
                     let node_indices_lhs = cluster_lhs.get_node_indices();
                     let node_indices_rhs = cluster_rhs.get_node_indices();
-                    let connection_map = NodeHierarchy::connect_clusters(
+                    let connection_map = NodeHierarchy::connect_clusters_greedy(
                         node_indices_lhs,
                         node_indices_rhs,
                         dis_matrix,
@@ -446,7 +432,7 @@ impl NodeHierarchy {
             }
         }
 
-        let mut clusters = BTreeMap::new();
+        let mut clusters = HashMap::new();
         for (cluster_index, children) in clusters_map.into_iter() {
             let node_indices = node_indices_map.remove(&cluster_index).unwrap();
             clusters.insert(
@@ -462,17 +448,33 @@ impl NodeHierarchy {
         NodeHierarchy { clusters }
     }
 
-    fn connect_clusters(
+    fn connect_clusters_greedy(
         nodes_lhs: &[usize],
         nodes_rhs: &[usize],
         dis_matrix: &Array2<i32>,
-    ) -> BTreeMap<usize, Vec<usize>> {
+    ) -> HashMap<usize, Vec<usize>> {
+        let assignment = pairing::greedy_pairs(dis_matrix, nodes_lhs, nodes_rhs);
+        let mut connection_map = HashMap::with_capacity(assignment.len());
+        for (a, b) in assignment {
+            connection_map.entry(a).or_insert(Vec::new()).push(b);
+            connection_map.entry(b).or_insert(Vec::new()).push(a);
+        }
+        connection_map
+    }
+
+    fn _connect_clusters(
+        nodes_lhs: &[usize],
+        nodes_rhs: &[usize],
+        dis_matrix: &Array2<i32>,
+    ) -> HashMap<usize, Vec<usize>> {
         // Make sure that nodes_lhs is always equal or smaller than nodes_rhs.
         if nodes_lhs.len() > nodes_rhs.len() {
-            return NodeHierarchy::connect_clusters(nodes_rhs, nodes_lhs, dis_matrix);
-        }
+            nodes_rhs
+        } else {
+            nodes_lhs
+        };
 
-        let mut connection_map = BTreeMap::new();
+        let mut connection_map = HashMap::new();
         loop {
             // Some nodes in nodes_rhs might not have been assigned if node_rhs.len() > node_lhs.len()
             let unassigned_rhs: Vec<usize> = nodes_rhs
@@ -514,14 +516,14 @@ impl NodeHierarchy {
     }
 
     fn new_leaf_hierarchy(assignment: &[usize]) -> Self {
-        let mut clusters_map = BTreeMap::new();
+        let mut clusters_map = HashMap::new();
         for (node_index, cluster_index) in assignment.iter().enumerate() {
             clusters_map
                 .entry(cluster_index)
                 .or_insert(Vec::new())
                 .push(Node::new(node_index));
         }
-        let mut clusters = BTreeMap::new();
+        let mut clusters = HashMap::new();
         for (cluster_index, nodes) in clusters_map.into_iter() {
             clusters.insert(
                 *cluster_index,
@@ -562,8 +564,11 @@ impl NodeHierarchy {
             for j in cluster_indices[i + 1..].iter() {
                 let node_indices_lhs = self.clusters.get(i).unwrap().get_node_indices();
                 let node_indices_rhs = self.clusters.get(j).unwrap().get_node_indices();
-                let connection_map =
-                    NodeHierarchy::connect_clusters(node_indices_lhs, node_indices_rhs, dis_matrix);
+                let connection_map = NodeHierarchy::connect_clusters_greedy(
+                    node_indices_lhs,
+                    node_indices_rhs,
+                    dis_matrix,
+                );
                 self.clusters
                     .get(i)
                     .unwrap()
@@ -625,8 +630,8 @@ mod tests {
     #[test]
     fn test_new_bar() {
         //let points = get_random_points(100, 10);
-        let num_points = 1000;
-        let cluster_size = 5;
+        let num_points = 10000;
+        let cluster_size = 10;
         let points = get_random_points(num_points, num_points / cluster_size);
         let matrix = get_distance_matrix(&points);
         let now = Instant::now();
