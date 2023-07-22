@@ -1,57 +1,73 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use ndarray::Array2;
 
+/// Hueristically sort a's indeces for greedily pairing.
+///
+/// First, sort a by the sum of distances to b for each item in a.
+///
+/// ```text
+/// a (sorted): [ 0 1 2 3 4 5 6 7 ]
+/// len: 8
+/// b (unsorted): [ 8 9 ]
+/// len: 2
+/// ```
+///
+/// Now iterate through the sorted items, to form chunks where each next index skips n items.
+///
+/// ```text
+/// n: ceil(a len / b len) = 4
+/// [ 0 4 ] [ 1 5 ] [ 2 6 ] [ 3 7 ]
+/// ```
+///
+/// Hypothetically speaking, this should be a good hueristic because each chunks first items,
+/// which have the lowest sum latency to b, will have the most number of options and will be
+/// able to select the optimal pair. In the network, we want to ensure as many low latency
+/// connections between clusters, and dont care if some pairings are sub-optimal.
+pub fn hueristic_sort(dissim_matrix: &Array2<i32>, a: &mut [usize], b: &[usize]) {
+    // 1. compute and sort each node by their sums of dissim to b
+    let mut sorted = a.to_vec();
+    sorted.sort_by_cached_key(|&i| b.iter().map(|&j| dissim_matrix[(i, j)]).sum::<i32>());
+
+    // 2. reassign indeces
+    let len = a.len();
+    let n = (len + b.len() - 1) / b.len(); // ceiling 
+    let mut iter = a.iter_mut();
+    for c in 0..n {
+        let mut j = c;
+        while j < len {
+            *iter.next().unwrap() = sorted[j];
+            j += n;
+        }
+    }
+}
+
+/// Greedily pair nodes together by finding their closest match, after a heuristic sort. If a
+/// cluster is smaller than the other, it may have more than one connection per node.
 pub fn greedy_pairs(dissim_matrix: &Array2<i32>, a: &[usize], b: &[usize]) -> Vec<(usize, usize)> {
     let (a, b) = if a.len() > b.len() { (a, b) } else { (b, a) };
-    let b_set = BTreeSet::from_iter(b.clone());
+    let mut a = a.to_vec();
 
-    // TODO: improve the initial greedy indeces
-    // First, sort a by the sum of distances to b for each item in a. For example:
-    //
-    // a (sorted): [ 0 1 2 3 4 5 6 7 ]
-    // len: 8
-    // b (unsorted): [ 8 9 ]
-    // len: 2
-    // indeces to skip for each chunk item: 4
-    //
-    // Now to form each chunk, iterate over the sorted items, to form chunks of a like so:
-    //
-    // [ 1 5 ] [ 2 6 ] [ 3 7 ] [ 4 8 ]
-    //
-    // Hypothetically speaking, this should be a good hueristic because as each chunks first items,
-    // which have the lowest sum latency to b, will have the most number of options and will be
-    // able to select an optimal pair. We can then iterate over chunks and find best pairs as
-    // implemented
+    hueristic_sort(dissim_matrix, &mut a, b);
 
-    let mut pairs = BTreeMap::new();
-
-    for a_chunk in a.chunks(b.len()) {
+    let b_set = BTreeSet::from_iter(b);
+    let mut pairs = Vec::new();
+    for chunk in a.chunks(b.len()) {
         // store a clone of the b set to remove entries from for this chunk
-        let mut b_set = b_set.clone();
-
+        let mut b_set_cloned = b_set.clone();
         // find best options from the b set for each item in the chunk
-        for i in a_chunk.iter() {
-            // find best option from the b set
-            let mut iter = b_set.iter();
-            let mut best = *iter.next().unwrap();
-            let mut best_dissim = dissim_matrix[(*i, *best)];
-            for &j in iter {
-                let dissim = dissim_matrix[(*i, *j)];
-                if dissim < best_dissim {
-                    best = j;
-                    best_dissim = dissim;
-                }
-            }
-
-            // remove the best index from b set for the next iteration
-            b_set.remove(best);
-            // insert the pairing
-            pairs.insert(*i, *best);
+        for i in chunk.iter() {
+            // find best option from the b set and remove it for the next node in a set
+            let best = *b_set_cloned
+                .iter()
+                .min_by_key(|&j| dissim_matrix[(*i, **j)])
+                .unwrap();
+            b_set_cloned.remove(best);
+            pairs.push((*i, *best));
         }
     }
 
-    pairs.into_iter().collect()
+    pairs
 }
 
 #[test]
