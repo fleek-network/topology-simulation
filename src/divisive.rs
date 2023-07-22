@@ -1,15 +1,12 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    fmt::Display,
-};
+use std::{collections::BTreeMap, fmt::Display};
 
 use ndarray::Array2;
-use pathfinding::prelude::Matrix;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     constrained_fasterpam,
+    pairing::greedy_pairs,
     types::{SerializedLayer, SerializedNode},
 };
 
@@ -198,44 +195,11 @@ impl DivisiveHierarchy {
                 clusters[assignment].push(node);
             }
 
-            // build weight matrix
-            // The smaller cluster should be placed on the left
-            if clusters[0].len() > clusters[1].len() {
-                clusters.swap(0, 1);
-            }
-            let (left_len, right_len) = (clusters[0].len(), clusters[1].len());
-            let mut weights = Vec::new();
-            for i in &clusters[0] {
-                for j in &clusters[1] {
-                    let dissim = dissim_matrix[(*i, *j)];
-                    weights.push(dissim);
-                }
-            }
-
-            // Compute pairs with the munkres (hungarian) algorithm
-            let (_cost, pairs) = pathfinding::kuhn_munkres::kuhn_munkres_min(
-                &Matrix::from_vec(left_len, right_len, weights).unwrap(),
-            );
-            let mut remaining = BTreeSet::from_iter(&clusters[1]);
-            for (i, &j) in pairs.iter().enumerate() {
-                // add connection to i and j
-                let (i, j) = (clusters[0][i], clusters[1][j]);
-                add_connection(&mut indeces, current_path.depth(), i, j);
-                remaining.remove(&j);
-            }
-
-            // Find best pair for missing nodes
-            for &missing in remaining {
-                let mut best = clusters[0][0];
-                let mut best_dist = dissim_matrix[(best, missing)];
-                for possible in &clusters[0][1..] {
-                    let dist = dissim_matrix[(*possible, missing)];
-                    if dist < best_dist {
-                        best = *possible;
-                        best_dist = dist;
-                    }
-                }
-                add_connection(&mut indeces, current_path.depth(), missing, best);
+            // greedily pair nodes together
+            let pairs = greedy_pairs(dissim_matrix, &clusters[0], &clusters[1]);
+            let depth = current_path.depth();
+            for (i, j) in pairs {
+                add_connection(&mut indeces, depth, i, j);
             }
 
             // Recurse new children for each cluster
