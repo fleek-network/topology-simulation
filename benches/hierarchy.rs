@@ -81,17 +81,6 @@ fn criterion_benchmark(c: &mut Criterion) {
                 b.iter(|| run_bottom_up_clustering(black_box(&matrix)))
             },
         );
-
-        /*c.bench_with_input(
-            BenchmarkId::new("Constrained FasterPAM", size),
-            &size,
-            |b, size| {
-                let clusters = (size + 7) / 8;
-                let points = get_random_points(*size, clusters);
-                let matrix = get_distance_matrix(&points);
-                b.iter(|| run_constrained_fasterpam(black_box(&matrix), clusters))
-            },
-        );*/
     }
 }
 
