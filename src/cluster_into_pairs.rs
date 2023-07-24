@@ -1,5 +1,5 @@
 use ndarray::Array2;
-use std::collections::{BTreeMap, BinaryHeap, HashSet};
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 struct Pair {
@@ -55,8 +55,8 @@ pub fn cluster(dis_matrix: &Array2<i32>) -> (Vec<usize>, Vec<usize>) {
         }
     }
 
-    let mut assignments = BTreeMap::new();
-    let mut medoids = BTreeMap::new();
+    let mut assignments = HashMap::new();
+    let mut medoids = HashMap::new();
     let mut cluster_index = 0;
     while !heap.is_empty() {
         let pair = heap.pop().unwrap();
