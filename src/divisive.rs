@@ -10,8 +10,7 @@ use crate::{
     types::{SerializedLayer, SerializedNode},
 };
 
-/// A divisive hierarchy strategy where we split the nodes into clusters of two, until the size
-/// is less than the target n
+/// A divisive hierarchy strategy
 #[derive(Debug, Clone)]
 pub enum DivisiveHierarchy {
     Group {
@@ -129,8 +128,11 @@ fn add_connection(indeces: &mut [Node], depth: usize, i: usize, j: usize) {
 }
 
 impl DivisiveHierarchy {
-    /// Create a new divisive hierarchy using constrained fasterpam and selecting first
-    pub fn new(dissim_matrix: &Array2<i32>, target_n: usize) -> Self {
+    /// Create a new divisive hierarchy using constrained fasterpam and selecting random medoids.
+    /// The algorithm divides the nodes into k "superclusters", aka "groups", until it cannot
+    /// anymore, and finally divides the last superclusters into an optimal number of final
+    /// clusters with k nodes in them.
+    pub fn new<R: Rng>(rng: &mut R, dissim_matrix: &Array2<i32>, k: usize) -> Self {
         let nodes: Vec<_> = (0..dissim_matrix.nrows())
             .map(|i| Node {
                 id: i,
@@ -138,28 +140,24 @@ impl DivisiveHierarchy {
             })
             .collect();
 
-        Self::new_inner(
-            &mut rand::thread_rng(),
-            dissim_matrix,
-            nodes,
-            target_n,
-            &HierarchyPath::root(),
-            false,
-        )
+        Self::new_inner(rng, dissim_matrix, nodes, &HierarchyPath::root(), k)
     }
 
     fn new_inner<R: Rng>(
         rng: &mut R,
         dissim_matrix: &Array2<i32>,
         mut indeces: Vec<Node>,
-        target_n: usize,
         current_path: &HierarchyPath,
-        last: bool,
+        k: usize,
     ) -> Self {
-        if last {
-            // add connections to every other node in the cluster for each node in the cluster
-            let depth = current_path.depth();
+        // calculate the number of clusters
+        let depth = current_path.depth();
+        let count = indeces.len() / k;
+        if count <= 1 {
+            // return base cluster
             let ids: Vec<_> = indeces.iter().map(|n| n.id).collect();
+
+            // add connections to every other node in the cluster for each node in the cluster
             for node in indeces.iter_mut() {
                 let conns = node.connections.entry(depth).or_default();
                 for id in &ids {
@@ -169,19 +167,25 @@ impl DivisiveHierarchy {
                 }
             }
 
-            // current list of nodes are within the target size
             Self::Cluster {
                 id: current_path.to_string(),
                 // collect the top level indeces for the nodes
-                nodes: indeces.iter().map(|n| (*n).clone()).collect(),
+                nodes: indeces,
             }
         } else {
-            // Split the current indeces in half using constrained fasterpam with random init
-            let mut medoids = rand::seq::index::sample(rng, dissim_matrix.nrows(), 2).into_vec();
+            // build children
+            let (n_clusters, min, max) = if count < k {
+                let t = indeces.len() / count;
+                (count, t - 1, t + 1)
+            } else {
+                (k, count - 1, count + 1)
+            };
 
-            let half = indeces.len() / 2;
-            let min = half - 1;
-            let max = half + 1;
+            // find n medoids
+            let mut medoids =
+                rand::seq::index::sample(rng, dissim_matrix.nrows(), n_clusters).into_vec();
+
+            // find n clusters
             let (_, assignments, _, _) = constrained_fasterpam::fasterpam::<_, i32>(
                 dissim_matrix,
                 &mut medoids,
@@ -190,23 +194,24 @@ impl DivisiveHierarchy {
                 max,
             );
 
-            let mut clusters = vec![vec![], vec![]];
+            let mut clusters: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
             for (node, &assignment) in assignments.iter().enumerate() {
-                clusters[assignment].push(node);
+                clusters.entry(assignment).or_default().push(node);
             }
 
             // greedily pair nodes together
-            let pairs = greedy_pairs(dissim_matrix, &clusters[0], &clusters[1]);
-            let depth = current_path.depth();
-            for (i, j) in pairs {
-                add_connection(&mut indeces, depth, i, j);
+            for a in 0..clusters.len() {
+                for b in a + 1..clusters.len() {
+                    let pairs = greedy_pairs(dissim_matrix, &clusters[&a], &clusters[&b]);
+                    for (i, j) in pairs {
+                        add_connection(&mut indeces, depth, i, j);
+                    }
+                }
             }
 
-            // Recurse new children for each cluster
-            // Stopping criteria is if either cluster is less than the target n size
-            let last = clusters[0].len() < target_n || clusters[1].len() < target_n;
-            let mut children = Vec::with_capacity(2);
-            for (path_index, new_indeces) in clusters.iter().enumerate() {
+            // recurse children
+            let mut children = Vec::with_capacity(n_clusters);
+            for (path_index, new_indeces) in clusters.values().enumerate() {
                 // build new matrix from medoids
                 let mut child_matrix = Array2::zeros((new_indeces.len(), new_indeces.len()));
 
@@ -219,12 +224,11 @@ impl DivisiveHierarchy {
                     }
                 }
 
-                // create a new child with the new matrix and indeces
+                // create a child with the new matrix and indeces
                 let mut path = current_path.clone();
                 path.0.push(path_index as u8);
-
                 let nodes: Vec<_> = new_indeces.iter().map(|&i| indeces[i].clone()).collect();
-                let child = Self::new_inner(rng, &child_matrix, nodes, target_n, &path, last);
+                let child = Self::new_inner(rng, &child_matrix, nodes, &path, k);
                 children.push(child);
             }
 

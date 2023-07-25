@@ -265,8 +265,8 @@ fn run_dcfpam(
     target_n: usize,
 ) -> (Vec<Vec<usize>>, Duration) {
     let instant = Instant::now();
-
-    let hierarchy = DivisiveHierarchy::new(dis_matrix, target_n);
+    let mut rng = rand::thread_rng();
+    let hierarchy = DivisiveHierarchy::new(&mut rng, dis_matrix, target_n);
     let json = to_string_pretty(&hierarchy).expect("failed to serialize divisive topology");
     std::fs::write("divisive_toplogy.json", json).expect("failed to save divisive toplogoy");
     let labels = hierarchy.assignments();
@@ -524,7 +524,7 @@ fn run() {
 
     eprintln!("running divisive constrained fasterpam");
 
-    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix, 20);
+    let (hierarchy_assignments, dcfpam_duration) = run_dcfpam(&dissim_matrix, 8);
     plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
     for (depth, assignment) in hierarchy_assignments.iter().skip(1).enumerate() {
         scatter_plot(

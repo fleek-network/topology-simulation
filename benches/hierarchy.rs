@@ -39,7 +39,7 @@ fn get_distance_matrix(data: &Array2<f64>) -> Array2<i32> {
 }
 
 fn run_divisive_constrained_fasterpam(dis_matrix: &Array2<i32>) -> DivisiveHierarchy {
-    DivisiveHierarchy::new(dis_matrix, 8)
+    DivisiveHierarchy::new(&mut rand::thread_rng(), dis_matrix, 8)
 }
 
 fn run_bottom_up_clustering(dis_matrix: &Array2<i32>) -> NodeHierarchy {
