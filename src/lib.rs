@@ -4,5 +4,6 @@ pub mod constrained_fasterpam;
 pub mod constrained_k_medoids;
 pub mod divisive;
 pub mod pairing;
+pub mod random_divisive;
 pub mod stats;
 pub mod types;

@@ -7,7 +7,8 @@ use std::{
 
 use base64::Engine;
 use clustering::{
-    constrained_k_medoids::ConstrainedKMedoids, divisive::DivisiveHierarchy, types::SerializedLayer,
+    constrained_k_medoids::ConstrainedKMedoids, divisive::DivisiveHierarchy, random_divisive,
+    types::SerializedLayer,
 };
 use csv::ReaderBuilder;
 use ndarray::{Array, Dim};
@@ -258,6 +259,20 @@ fn run_constrained_alternating(
     );
     let (labels, iterations) = alg.alternating();
     (labels, iterations, instant.elapsed())
+}
+
+fn run_div_random(
+    dis_matrix: &Array<i32, Dim<[usize; 2]>>,
+    target_n: usize,
+) -> (Vec<Vec<usize>>, Duration) {
+    let instant = Instant::now();
+    let mut rng = rand::thread_rng();
+    let hierarchy = random_divisive::DivisiveHierarchy::new(&mut rng, dis_matrix, target_n);
+    let json = to_string_pretty(&hierarchy).expect("failed to serialize random divisive topology");
+    std::fs::write("random_divisive_toplogy.json", json)
+        .expect("failed to save random divisive toplogoy");
+    let labels = hierarchy.assignments();
+    (labels, instant.elapsed())
 }
 
 fn run_dcfpam(
@@ -519,6 +534,26 @@ fn run() {
     let (metrics_for_each_cluster_c_fasterpam, overall_cluster_metrics_c_fasterpam) =
         calculate_cluster_metrics(&assignment, &matrix);
     let table_rows_c_fasterpam = get_table_rows(&metrics_for_each_cluster_c_fasterpam);
+
+    /* DIVISIVE RANDOM */
+
+    eprintln!("running divisive random clustering");
+
+    let (hierarchy_assignments, _div_random_duration) = run_div_random(&dissim_matrix, 8);
+    plot_buffer.push_str(r#"<div class="side-by-side" style="display: flex;">"#);
+    for (depth, assignment) in hierarchy_assignments.iter().skip(1).enumerate() {
+        scatter_plot(
+            &mut plot_buffer,
+            &data_points,
+            assignment,
+            &format!("Divisive Random - Level {}", depth),
+        );
+    }
+    plot_buffer.push_str(r#"</div>"#);
+
+    let (metrics_for_each_cluster_div_random, _overall_cluster_metrics_div_random) =
+        calculate_cluster_metrics(hierarchy_assignments.last().unwrap(), &matrix);
+    let _table_rows_div_random = get_table_rows(&metrics_for_each_cluster_div_random);
 
     /* DIVISIVE CONSTRAINED FASTERPAM */
 

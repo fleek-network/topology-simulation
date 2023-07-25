@@ -18,6 +18,8 @@ base64 = "0.21.2"
 
 pathfinding = "4.3.0"
 
+simulon = "0.0.3"
+
 # constrained kmedoids deps 
 num-traits = "0.2.9"
 mcmf = "2.0.0"
