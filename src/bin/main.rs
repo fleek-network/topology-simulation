@@ -1,6 +1,7 @@
 use std::{
     collections::BTreeMap,
     error::Error,
+    io::Write,
     time::{Duration, Instant},
 };
 
@@ -15,7 +16,6 @@ use plotters::prelude::*;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
-use std::io::Write;
 
 const FONT: &str = "IBM Plex Mono, monospace";
 
@@ -75,7 +75,11 @@ fn get_table_rows(cluster_metrics: &BTreeMap<usize, ClusterMetrics>) -> String {
     for (cluster_idx, metrics) in cluster_metrics.iter() {
         table_rows.push(format!(
             "<tr><td>{cluster_idx}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
-            metrics.count, metrics.mean_latency, metrics.standard_dev_latency, metrics.min_latency, metrics.max_latency
+            metrics.count,
+            metrics.mean_latency,
+            metrics.standard_dev_latency,
+            metrics.min_latency,
+            metrics.max_latency
         ));
     }
     table_rows.join("\n")

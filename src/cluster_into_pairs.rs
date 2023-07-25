@@ -1,5 +1,6 @@
-use ndarray::Array2;
 use std::collections::{BinaryHeap, HashMap, HashSet};
+
+use ndarray::Array2;
 
 #[derive(Debug, Clone)]
 struct Pair {

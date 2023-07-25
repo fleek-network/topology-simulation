@@ -1,13 +1,13 @@
-use std::collections::BTreeMap;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::cluster_into_pairs;
-use crate::constrained_fasterpam;
-use crate::pairing;
-use crate::types::{SerializedLayer, SerializedNode};
 use ndarray::{Array, Array2};
 use pathfinding::prelude::{kuhn_munkres_min, Matrix};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    cluster_into_pairs, constrained_fasterpam, pairing,
+    types::{SerializedLayer, SerializedNode},
+};
 
 impl From<NodeHierarchy> for SerializedLayer {
     fn from(value: NodeHierarchy) -> Self {
@@ -309,7 +309,8 @@ impl NodeHierarchy {
             level += 1;
             let new_dis_matrix = NodeHierarchy::build_matrix(dis_matrix, &medoids);
             //let new_dis_matrix = Array::zeros((medoids.len(), medoids.len()));
-            //let new_dis_matrix = NodeHierarchy::build_matrix_v2(dis_matrix, &medoids, &assignment);
+            //let new_dis_matrix = NodeHierarchy::build_matrix_v2(dis_matrix, &medoids,
+            // &assignment);
 
             //let mut new_medoids = kmedoids::random_initialization(
             //    new_dis_matrix.shape()[0],
@@ -318,7 +319,8 @@ impl NodeHierarchy {
             //);
 
             //let (_, new_assignment, _, _): (f64, _, _, _) =
-            //    constrained_fasterpam::fasterpam(&new_dis_matrix, &mut new_medoids, max_iter, 2, 2);
+            //    constrained_fasterpam::fasterpam(&new_dis_matrix, &mut new_medoids, max_iter, 2,
+            // 2);
             let (new_assignment, new_medoids) = cluster_into_pairs::cluster(&new_dis_matrix);
 
             let new_hierarchy = NodeHierarchy::new_hierarchy(
@@ -499,7 +501,8 @@ impl NodeHierarchy {
 
         let mut connection_map = HashMap::new();
         loop {
-            // Some nodes in nodes_rhs might not have been assigned if node_rhs.len() > node_lhs.len()
+            // Some nodes in nodes_rhs might not have been assigned if node_rhs.len() >
+            // node_lhs.len()
             let unassigned_rhs: Vec<usize> = nodes_rhs
                 .iter()
                 .filter(|index| !connection_map.contains_key(*index))

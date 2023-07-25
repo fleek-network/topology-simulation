@@ -1,8 +1,9 @@
+use std::time::Instant;
+
 use clustering::bottom_up::NodeHierarchy;
 use ndarray::Array2;
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::{self, Rng};
-use std::time::Instant;
 
 fn get_random_points(num_nodes: usize, num_clusters: usize) -> Array2<f64> {
     let mut points = Array2::zeros((num_nodes, 2));
