@@ -346,7 +346,7 @@ impl NodeHierarchy {
             //    constrained_fasterpam::fasterpam(&new_dis_matrix, &mut new_medoids, max_iter, 2,
             // 2);
             let (new_assignment, _) = cluster_into_pairs::cluster(&new_dis_matrix);
-            let meds_indices: BTreeSet<usize> = assignment.clone().into_iter().collect();
+            let meds_indices: BTreeSet<usize> = new_assignment.clone().into_iter().collect();
             let new_medoids: Vec<usize> = meds_indices.iter().map(|&index| meds[index]).collect();
 
             let new_hierarchy = NodeHierarchy::new_hierarchy(
@@ -356,16 +356,6 @@ impl NodeHierarchy {
                 &new_assignment,
                 level,
             );
-
-            println!("#####################");
-            println!("new_medoids.len(): {}", new_medoids.len());
-            println!("#####################");
-            let clusters: BTreeMap<usize, Cluster> =
-                new_hierarchy.clusters.clone().into_iter().collect();
-            for (key, _cluser) in clusters {
-                println!("{key:?}");
-            }
-            println!("#####################");
 
             medoids = new_medoids;
             hierarchy = new_hierarchy;
@@ -457,10 +447,10 @@ impl NodeHierarchy {
         let mut clusters_map = HashMap::new();
         let mut node_indices_map = HashMap::new();
 
-        println!("new_assignment:");
-        println!("{below_level}");
-        println!("assignment:");
-        println!("{assignment:?}");
+        let mut assignment_clone = assignment.to_vec();
+        assignment_clone.sort();
+        let mut cluster_indices: Vec<usize> = below_level.clusters.keys().copied().collect();
+        cluster_indices.sort();
 
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
             if !below_level.clusters.contains_key(&below_cluster_index) {

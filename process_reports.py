@@ -4,7 +4,7 @@ import numpy as np
 
 
 if __name__ == '__main__':
-    report_files = ['simulation_report_baseline.json', 'simulation_report_divisive.json', 'simulation_report_ring.json']
+    report_files = ['simulation_report_baseline.json', 'simulation_report_divisive.json', 'simulation_report_ring.json', 'simulation_report_bottom_up.json']
     
     summary_stats = {}
     for report_file in report_files:

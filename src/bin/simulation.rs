@@ -292,19 +292,19 @@ pub fn main() {
     serde_json::to_writer(file, &baseline_report).expect("failed to write json report");
 
     // Bottom-Up
-    //println!("running bottom up");
-    //let hierarchy = NodeHierarchy::new(&matrix, N / 8, 8, 8, 100);
-    //let assignments = hierarchy.get_connections();
+    println!("running bottom up");
+    let hierarchy = NodeHierarchy::new(&matrix, N / 8, 7, 9, 100);
+    let assignments = hierarchy.get_connections();
 
-    //let bottom_up_report = SimulationBuilder::new(|| exec(N))
-    //    .with_nodes(N + 1)
-    //    .with_state(assignments)
-    //    .set_node_metrics_rate(Duration::ZERO)
-    //    .enable_progress_bar()
-    //    .run(Duration::from_secs(60));
+    let bottom_up_report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(60));
 
     // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_bottom_up.json")
         .expect("failed to open json report file");
-    //serde_json::to_writer(file, &bottom_up_report).expect("failed to write json report");
+    serde_json::to_writer(file, &bottom_up_report).expect("failed to write json report");
 }
