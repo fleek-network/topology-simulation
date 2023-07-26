@@ -8,13 +8,13 @@ use std::{
 use base64::Engine;
 use clustering::{
     constrained_k_medoids::ConstrainedKMedoids, divisive::DivisiveHierarchy, random_divisive,
-    types::SerializedLayer,
+    sparsify, types::SerializedLayer,
 };
 use csv::ReaderBuilder;
-use ndarray::{Array, Array2, Dim};
+use ndarray::{Array, Dim};
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use plotters::prelude::*;
-use rand::{seq::SliceRandom, Rng};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 
@@ -459,26 +459,6 @@ fn toy_example() {
     std::fs::write("toy_report.html", html).unwrap();
 }
 
-fn make_matrix_sparse(matrix: &mut Array2<i32>, percent_of_missing_values: f32) {
-    let mut sum: u128 = 0;
-    let (n, m) = (matrix.shape()[0], matrix.shape()[1]);
-    let total = n * m;
-    let mut matrix_indices = Vec::with_capacity(total);
-    for i in 0..n {
-        for j in 0..m {
-            sum += matrix[[i, j]] as u128;
-            matrix_indices.push((i, j));
-        }
-    }
-    let mean = (sum / total as u128) as i32;
-    matrix_indices.shuffle(&mut rand::thread_rng());
-    let num_values = (matrix_indices.len() as f32 * percent_of_missing_values) as usize;
-
-    for (x, y) in matrix_indices.into_iter().take(num_values) {
-        matrix[[x, y]] = mean;
-    }
-}
-
 fn run() {
     let matrix = read_latency_matrix("matrix.csv").unwrap();
     let metadata = read_metadata("metadata.csv").unwrap();
@@ -508,7 +488,7 @@ fn run() {
         }
     }
 
-    //make_matrix_sparse(&mut dissim_matrix, 0.3);
+    sparsify::fill_sparse_entries_with_mean(&mut dissim_matrix, 0.0);
 
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 10;

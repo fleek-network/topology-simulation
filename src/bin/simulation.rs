@@ -2,7 +2,7 @@ use std::{cell::RefCell, iter::repeat, rc::Rc, time::Duration};
 
 use clustering::{
     bottom_up::NodeHierarchy, divisive::DivisiveHierarchy,
-    random_divisive::DivisiveHierarchy as RandDivisiveHierarchy,
+    random_divisive::DivisiveHierarchy as RandDivisiveHierarchy, sparsify,
 };
 use fxhash::{FxHashMap, FxHashSet};
 use ndarray::Array2;
@@ -235,7 +235,8 @@ fn get_matrix(n: usize) -> Array2<i32> {
 pub fn main() {
     const N: usize = 1500;
 
-    let matrix = get_matrix(N);
+    let mut matrix = get_matrix(N);
+    sparsify::fill_sparse_entries_with_mean(&mut matrix, 0.0);
 
     // Ring
     let assignments: Vec<Vec<usize>> = (0..N)
