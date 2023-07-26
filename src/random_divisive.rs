@@ -7,10 +7,20 @@ use ndarray::Array2;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    pairing::greedy_pairs,
-    types::{SerializedLayer, SerializedNode},
-};
+use crate::types::{SerializedLayer, SerializedNode};
+
+fn random_pairs(a: &[usize], b: &[usize]) -> Vec<(usize, usize)> {
+    let (a, b) = if a.len() > b.len() { (a, b) } else { (b, a) };
+
+    let mut pairs = Vec::new();
+
+    for a_chunk in a.chunks(b.len()) {
+        for (i_index, i) in a_chunk.iter().enumerate() {
+            pairs.push((*i, b[i_index]));
+        }
+    }
+    pairs
+}
 
 fn random_clustering(
     num_nodes: usize,
@@ -224,7 +234,7 @@ impl DivisiveHierarchy {
             // greedily pair nodes together
             for a in 0..clusters.len() {
                 for b in a + 1..clusters.len() {
-                    let pairs = greedy_pairs(dissim_matrix, &clusters[&a], &clusters[&b]);
+                    let pairs = random_pairs(&clusters[&a], &clusters[&b]);
                     for (i, j) in pairs {
                         add_connection(&mut indeces, depth, i, j);
                     }
