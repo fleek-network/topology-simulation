@@ -31,12 +31,11 @@ struct BroadcastConnection {
 
 impl NodeState {
     fn handle_message_internal(&mut self, id: usize, payload: Vec<u8>) {
-        assert!(
-            self.messages
-                .insert(id, Some(payload.clone()))
-                .flatten()
-                .is_none()
-        );
+        assert!(self
+            .messages
+            .insert(id, Some(payload.clone()))
+            .flatten()
+            .is_none());
 
         api::emit(String::from_utf8(payload).unwrap());
 
@@ -234,6 +233,28 @@ pub fn main() {
     const N: usize = 1500;
 
     let matrix = get_matrix(N);
+
+    // Ring
+    let assignments: Vec<Vec<usize>> = (0..N)
+        .map(|index| {
+            if index == N - 1 {
+                vec![0]
+            } else {
+                vec![index + 1]
+            }
+        })
+        .collect();
+    let report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(60));
+    // write out json report for the simulation
+    let file = std::fs::File::create("simulation_report_ring.json")
+        .expect("failed to open json report file");
+    serde_json::to_writer(file, &report).expect("failed to write json report");
+
     // Divisive
     println!("running divisive topology");
     let hierarchy = DivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
@@ -268,19 +289,19 @@ pub fn main() {
     serde_json::to_writer(file, &baseline_report).expect("failed to write json report");
 
     // Bottom-Up
-    println!("running bottom up");
-    let hierarchy = NodeHierarchy::new(&matrix, N / 8, 8, 8, 100);
-    let assignments = hierarchy.get_connections();
+    //println!("running bottom up");
+    //let hierarchy = NodeHierarchy::new(&matrix, N / 8, 8, 8, 100);
+    //let assignments = hierarchy.get_connections();
 
-    let bottom_up_report = SimulationBuilder::new(|| exec(N))
-        .with_nodes(N + 1)
-        .with_state(assignments)
-        .set_node_metrics_rate(Duration::ZERO)
-        .enable_progress_bar()
-        .run(Duration::from_secs(60));
+    //let bottom_up_report = SimulationBuilder::new(|| exec(N))
+    //    .with_nodes(N + 1)
+    //    .with_state(assignments)
+    //    .set_node_metrics_rate(Duration::ZERO)
+    //    .enable_progress_bar()
+    //    .run(Duration::from_secs(60));
 
     // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_bottom_up.json")
         .expect("failed to open json report file");
-    serde_json::to_writer(file, &bottom_up_report).expect("failed to write json report");
+    //serde_json::to_writer(file, &bottom_up_report).expect("failed to write json report");
 }
