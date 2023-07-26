@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fmt::Display};
 
 use ndarray::Array2;
 use rand::Rng;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::{
     constrained_fasterpam,
@@ -13,7 +13,7 @@ use crate::{
 /// A divisive hierarchy strategy
 #[derive(Debug, Clone)]
 pub enum DivisiveHierarchy {
-    Group {
+    SuperCluster {
         id: String,
         total: usize,
         children: Vec<DivisiveHierarchy>,
@@ -28,7 +28,7 @@ pub enum DivisiveHierarchy {
 impl From<&DivisiveHierarchy> for SerializedLayer {
     fn from(value: &DivisiveHierarchy) -> Self {
         match value {
-            DivisiveHierarchy::Group {
+            DivisiveHierarchy::SuperCluster {
                 id,
                 total,
                 children,
@@ -76,19 +76,6 @@ impl Serialize for Node {
         S: serde::Serializer,
     {
         SerializedNode::from(self).serialize(serializer)
-    }
-}
-
-impl<'de> Deserialize<'de> for Node {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let temp = SerializedNode::deserialize(deserializer)?;
-        Ok(Self {
-            id: temp.id,
-            connections: BTreeMap::from_iter(temp.connections.iter().cloned().enumerate()),
-        })
     }
 }
 
@@ -232,7 +219,7 @@ impl DivisiveHierarchy {
                 children.push(child);
             }
 
-            Self::Group {
+            Self::SuperCluster {
                 id: current_path.to_string(),
                 total: indeces.len(),
                 nodes: indeces,
@@ -244,9 +231,32 @@ impl DivisiveHierarchy {
     /// Get the total number of nodes in the hierarchy
     pub fn n_nodes(&self) -> usize {
         match self {
-            Self::Group { total, .. } => *total,
+            Self::SuperCluster { total, .. } => *total,
             Self::Cluster { nodes, .. } => nodes.len(),
         }
+    }
+
+    /// Collect connections for each node at all depths of the hierarchy.
+    pub fn connections(&self) -> Vec<Vec<usize>> {
+        fn inner(item: &DivisiveHierarchy, data: &mut Vec<Vec<usize>>) {
+            match item {
+                DivisiveHierarchy::SuperCluster { children, .. } => {
+                    for child in children {
+                        inner(child, data)
+                    }
+                },
+                DivisiveHierarchy::Cluster { nodes, .. } => {
+                    for node in nodes {
+                        let conns: Vec<_> = node.connections.values().flatten().cloned().collect();
+                        data[node.id] = conns;
+                    }
+                },
+            }
+        }
+
+        let mut data = vec![vec![]; self.n_nodes()];
+        inner(self, &mut data);
+        data
     }
 
     /// Collect assignments for each node at each depth of the hierarchy. The last vec of
@@ -262,7 +272,7 @@ impl DivisiveHierarchy {
             let current = *counter;
             *counter += 1;
             match item {
-                DivisiveHierarchy::Group {
+                DivisiveHierarchy::SuperCluster {
                     children, nodes, ..
                 } => {
                     // set assignments
