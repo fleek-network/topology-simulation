@@ -223,9 +223,12 @@ fn get_matrix(n: usize) -> Array2<i32> {
     let mut matrix = Array2::zeros((n, n));
     for i in 0..n {
         for j in i + 1..n {
-            matrix[(i, j)] = provider.get(i, j).as_micros() as i32;
+            let val = provider.get(i, j).as_micros() as i32;
+            matrix[(i, j)] = val;
+            matrix[(j, i)] = val;
         }
     }
+
     matrix
 }
 
