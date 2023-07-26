@@ -18,7 +18,7 @@ enum Message {
 #[derive(Default)]
 struct NodeState {
     conns: FxHashMap<api::RemoteAddr, BroadcastConnection>,
-    messages: FxHashMap<usize, Vec<u8>>,
+    messages: FxHashMap<usize, Option<Vec<u8>>>,
 }
 
 struct BroadcastConnection {
@@ -28,9 +28,13 @@ struct BroadcastConnection {
 
 impl NodeState {
     fn handle_message_internal(&mut self, id: usize, payload: Vec<u8>) {
-        if self.messages.insert(id, payload.clone()).is_none() {
-            api::emit(String::from_utf8(payload).unwrap());
-        }
+        assert!(self
+            .messages
+            .insert(id, Some(payload.clone()))
+            .flatten()
+            .is_none());
+
+        api::emit(String::from_utf8(payload).unwrap());
 
         for (_addr, conn) in self.conns.iter_mut() {
             if conn.seen.contains(&id) {
@@ -58,15 +62,18 @@ impl NodeState {
         conn.seen.insert(id);
 
         // If we already have the message move on.
-        if self.messages.contains_key(&id) {
-            return;
-        }
+        match self.messages.entry(id) {
+            std::collections::hash_map::Entry::Vacant(e) => e.insert(None),
+            std::collections::hash_map::Entry::Occupied(_) => {
+                return;
+            },
+        };
 
         conn.writer.write(&Message::Want(id));
     }
 
     pub fn handle_want(&mut self, sender: api::RemoteAddr, id: usize) {
-        if let Some(payload) = self.messages.get(&id) {
+        if let Some(Some(payload)) = self.messages.get(&id) {
             let conn = self.conns.get_mut(&sender).unwrap();
             conn.seen.insert(id);
             conn.writer.write(&Message::Payload(id, payload.clone()));
