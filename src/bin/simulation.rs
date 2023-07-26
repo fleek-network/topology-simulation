@@ -1,6 +1,9 @@
 use std::{cell::RefCell, iter::repeat, rc::Rc, time::Duration};
 
-use clustering::divisive::DivisiveHierarchy;
+use clustering::{
+    bottom_up::NodeHierarchy, divisive::DivisiveHierarchy,
+    random_divisive::DivisiveHierarchy as RandDivisiveHierarchy,
+};
 use fxhash::{FxHashMap, FxHashSet};
 use ndarray::Array2;
 use rand::{Rng, SeedableRng};
@@ -230,6 +233,8 @@ pub fn main() {
     const N: usize = 1500;
 
     let matrix = get_matrix(N);
+
+    // Divisive
     let hierarchy = DivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
     let assignments = hierarchy.connections();
 
@@ -241,7 +246,39 @@ pub fn main() {
         .run(Duration::from_secs(120));
 
     // write out json report for the simulation
-    let file =
-        std::fs::File::create("simulation_report.json").expect("failed to open json report file");
+    let file = std::fs::File::create("simulation_report_divisive.json")
+        .expect("failed to open json report file");
+    serde_json::to_writer(file, &report).expect("failed to write json report");
+
+    // BaseLine
+    let hierarchy = RandDivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
+    let assignments = hierarchy.connections();
+
+    let report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(120));
+
+    // write out json report for the simulation
+    let file = std::fs::File::create("simulation_report_baseline.json")
+        .expect("failed to open json report file");
+    serde_json::to_writer(file, &report).expect("failed to write json report");
+
+    // Bottom-Up
+    let hierarchy = NodeHierarchy::new(&matrix, N / 8, 8, 8, 100);
+    let assignments = hierarchy.get_connections();
+
+    let report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(120));
+
+    // write out json report for the simulation
+    let file = std::fs::File::create("simulation_report_bottom_up.json")
+        .expect("failed to open json report file");
     serde_json::to_writer(file, &report).expect("failed to write json report");
 }

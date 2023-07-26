@@ -40,8 +40,8 @@ fn get_distance_matrix(data: &Array2<f64>) -> Array2<i32> {
 }
 
 fn main() {
-    let num_points = 5000;
-    let cluster_size = 10;
+    let num_points = 1500;
+    let cluster_size = 8;
     let points = get_random_points(num_points, num_points / cluster_size);
     let matrix = get_distance_matrix(&points);
     let now = Instant::now();

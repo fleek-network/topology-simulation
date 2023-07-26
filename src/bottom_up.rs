@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use ndarray::{Array, Array2};
 use pathfinding::prelude::{kuhn_munkres_min, Matrix};
@@ -70,6 +70,30 @@ impl std::fmt::Display for Cluster {
 }
 
 impl Cluster {
+    fn get_connections(&self, connections: &mut Vec<Vec<usize>>) {
+        match self {
+            Cluster::Cluster {
+                index: _,
+                total: _,
+                node_indices: _,
+                children,
+            } => {
+                children
+                    .iter()
+                    .for_each(|child| child.get_connections(connections));
+            },
+            Cluster::LeafCluster {
+                index: _,
+                node_indices: _,
+                nodes,
+            } => {
+                nodes.iter().for_each(|node| {
+                    connections[node.index] = node.connections.values().flatten().copied().collect()
+                });
+            },
+        }
+    }
+
     fn to_serialized_layer(&self, mut level_path: Vec<String>) -> SerializedLayer {
         match self {
             Cluster::Cluster {
@@ -297,8 +321,8 @@ impl NodeHierarchy {
             init_min_size,
             init_max_size,
         );
-
-        let mut medoids = meds;
+        let meds_indices: BTreeSet<usize> = assignment.clone().into_iter().collect();
+        let mut medoids: Vec<usize> = meds_indices.iter().map(|&index| meds[index]).collect();
         let mut level = 0;
 
         let mut hierarchy = NodeHierarchy::new_leaf_hierarchy(&assignment);
@@ -341,6 +365,16 @@ impl NodeHierarchy {
         hierarchy.connect_nodes_in_root_clusters(dis_matrix, level + 1, &mut node_connections);
         hierarchy.add_node_connections(&mut node_connections);
         hierarchy
+    }
+
+    pub fn get_connections(&self) -> Vec<Vec<usize>> {
+        let mut connections = vec![vec![]; self.get_node_indices().len()];
+
+        self.clusters
+            .values()
+            .for_each(|cluster| cluster.get_connections(&mut connections));
+
+        connections
     }
 
     pub fn get_assignments(&self) -> BTreeMap<usize, Vec<usize>> {
@@ -393,7 +427,7 @@ impl NodeHierarchy {
         }
     }
 
-    fn _get_node_indices(&self) -> Vec<usize> {
+    fn get_node_indices(&self) -> Vec<usize> {
         let mut nodes = Vec::new();
         for (_, cluster) in self.clusters.iter() {
             nodes.extend(cluster.get_node_indices());
@@ -410,6 +444,7 @@ impl NodeHierarchy {
     ) -> Self {
         let mut clusters_map = HashMap::new();
         let mut node_indices_map = HashMap::new();
+
         for (below_cluster_index, cluster_index) in assignment.iter().enumerate() {
             let cluster = below_level
                 .clusters
