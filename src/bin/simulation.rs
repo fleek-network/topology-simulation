@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::{cell::RefCell, iter::repeat, rc::Rc, time::Duration};
 
 use clustering::{
@@ -32,11 +31,12 @@ struct BroadcastConnection {
 
 impl NodeState {
     fn handle_message_internal(&mut self, id: usize, payload: Vec<u8>) {
-        assert!(self
-            .messages
-            .insert(id, Some(payload.clone()))
-            .flatten()
-            .is_none());
+        assert!(
+            self.messages
+                .insert(id, Some(payload.clone()))
+                .flatten()
+                .is_none()
+        );
 
         api::emit(String::from_utf8(payload).unwrap());
 
@@ -179,7 +179,7 @@ async fn handle_connection(state: NodeStateRef, conn: api::Connection) {
 async fn run_client(n: usize) {
     let mut rng = ChaCha8Rng::from_seed([0; 32]);
 
-    for i in 0..1 {
+    for i in 0.. {
         let index = rng.gen_range(0..n);
         let addr = api::RemoteAddr::from_global_index(index);
 
@@ -232,63 +232,55 @@ fn get_matrix(n: usize) -> Array2<i32> {
 
 pub fn main() {
     const N: usize = 1500;
-    const TRIALS: usize = 10;
 
-    let mut baseline_reports = HashMap::new();
-    let mut divisive_reports = HashMap::new();
-    let mut bottom_up_reports = HashMap::new();
+    let matrix = get_matrix(N);
+    // Divisive
+    println!("running divisive topology");
+    let hierarchy = DivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
+    let assignments = hierarchy.connections();
 
-    for trial in 0..TRIALS {
-        let matrix = get_matrix(N);
-        // Divisive
-        let hierarchy = DivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
-        let assignments = hierarchy.connections();
-
-        let report = SimulationBuilder::new(|| exec(N))
-            .with_nodes(N + 1)
-            .with_state(assignments)
-            .set_node_metrics_rate(Duration::ZERO)
-            .enable_progress_bar()
-            .run(Duration::from_secs(120));
-        divisive_reports.insert(trial, report);
-
-        // BaseLine
-        let hierarchy = RandDivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
-        let assignments = hierarchy.connections();
-
-        let report = SimulationBuilder::new(|| exec(N))
-            .with_nodes(N + 1)
-            .with_state(assignments)
-            .set_node_metrics_rate(Duration::ZERO)
-            .enable_progress_bar()
-            .run(Duration::from_secs(120));
-        baseline_reports.insert(trial, report);
-
-        // Bottom-Up
-        let hierarchy = NodeHierarchy::new(&matrix, N / 8, 8, 8, 100);
-        let assignments = hierarchy.get_connections();
-
-        let report = SimulationBuilder::new(|| exec(N))
-            .with_nodes(N + 1)
-            .with_state(assignments)
-            .set_node_metrics_rate(Duration::ZERO)
-            .enable_progress_bar()
-            .run(Duration::from_secs(120));
-        bottom_up_reports.insert(trial, report);
-    }
-
+    let divisive_report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(60));
     // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_divisive.json")
         .expect("failed to open json report file");
-    serde_json::to_writer(file, &divisive_reports).expect("failed to write json report");
+    serde_json::to_writer(file, &divisive_report).expect("failed to write json report");
+
+    // BaseLine
+    println!("running baseline");
+    let hierarchy = RandDivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
+    let assignments = hierarchy.connections();
+
+    let baseline_report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(60));
 
     // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_baseline.json")
         .expect("failed to open json report file");
-    serde_json::to_writer(file, &baseline_reports).expect("failed to write json report");
+    serde_json::to_writer(file, &baseline_report).expect("failed to write json report");
+
+    // Bottom-Up
+    println!("running bottom up");
+    let hierarchy = NodeHierarchy::new(&matrix, N / 8, 8, 8, 100);
+    let assignments = hierarchy.get_connections();
+
+    let bottom_up_report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(60));
 
     // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_bottom_up.json")
         .expect("failed to open json report file");
-    serde_json::to_writer(file, &bottom_up_reports).expect("failed to write json report");
+    serde_json::to_writer(file, &bottom_up_report).expect("failed to write json report");
 }
