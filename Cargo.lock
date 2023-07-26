@@ -1503,9 +1503,9 @@ checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
 name = "simulon"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "050ce320899ec4bc3b1432fa7adde7641433e78d7789422f7268cbb225731615"
+checksum = "108b64cec568afd40520da2588783ca24e3bbf5753746976b6e72f07741a3365"
 dependencies = [
  "arrayref",
  "bincode",
