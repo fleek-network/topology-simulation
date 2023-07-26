@@ -31,11 +31,12 @@ struct BroadcastConnection {
 
 impl NodeState {
     fn handle_message_internal(&mut self, id: usize, payload: Vec<u8>) {
-        assert!(self
-            .messages
-            .insert(id, Some(payload.clone()))
-            .flatten()
-            .is_none());
+        assert!(
+            self.messages
+                .insert(id, Some(payload.clone()))
+                .flatten()
+                .is_none()
+        );
 
         api::emit(String::from_utf8(payload).unwrap());
 
