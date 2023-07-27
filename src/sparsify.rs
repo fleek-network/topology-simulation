@@ -45,15 +45,23 @@ pub fn interpolate_sparse_entries_with_mean(
     let mean = (sum / total as u128) as i32;
 
     for (x, y) in matrix_indices.into_iter().take(num_values) {
-        //matrix[[x, y]] = mean;
         let row = matrix.slice(s![.., x]);
         let col = matrix.slice(s![y, ..]);
+
+        let q = 0.3;
+        let mut row_values: Vec<i32> = row.iter().copied().collect();
+        // TODO: use quick select
+        row_values.sort();
+        let index = (q * row_values.len() as f64).floor() as usize;
+        let quantile = row_values[index];
 
         let mut dot_prod = 0;
         let mut sum = 0;
         for i in 0..row.shape()[0] {
-            dot_prod += row[i] as u128 * col[i] as u128;
-            sum += row[i] as u128;
+            if row[i] <= quantile {
+                dot_prod += row[i] as u128 * col[i] as u128;
+                sum += row[i] as u128;
+            }
         }
         if sum != 0 {
             matrix[[x, y]] = (dot_prod / sum) as i32;
