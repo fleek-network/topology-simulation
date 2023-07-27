@@ -223,7 +223,7 @@ where
     let mut removal_loss = vec![L::zero(); k];
     update_removal_loss(&data, &mut removal_loss);
     let (mut lastswap, mut n_swaps, mut iter) = (n, 0, 0);
-    let (mut assi, mut cost) = build_solve_graph(mat, med, min, max);
+
     while iter < maxiter {
         iter += 1;
         let swaps_before = n_swaps;
@@ -236,21 +236,16 @@ where
             if node_idx == med[data[node_idx].near.i as usize] {
                 continue; // This already is a medoid
             }
+            // for each medoid
+            let (change, medoid_idx) = find_best_swap(mat, &removal_loss, &data, node_idx);
 
-            let medoid_idx = find_best_swap(mat, &removal_loss, &data, node_idx).1;
-
-            // solve a min cost flow graph for the new medoid
-            let mut tmp = med.clone();
-            tmp[medoid_idx] = node_idx;
-            let (new_assi, new_cost) = build_solve_graph(mat, &tmp, min, max);
-            if new_cost > cost {
+            if change >= L::zero() {
                 continue; // No improvement
             }
-            (assi, cost) = (new_assi, new_cost);
 
-            // perform the swap
             n_swaps += 1;
             lastswap = node_idx;
+            // perform the swap
             let newloss = do_swap(mat, med, &mut data, medoid_idx, node_idx);
             if newloss >= loss {
                 break; // Probably numerically unstable now.
@@ -258,12 +253,12 @@ where
             loss = newloss;
             update_removal_loss(&data, &mut removal_loss);
         }
-
         if n_swaps == swaps_before {
             break; // converged
         }
     }
 
+    let (assi, _cost) = build_solve_graph(mat, med, min, max);
     (loss, assi, iter, n_swaps)
 }
 
