@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use clustering::bottom_up::NodeHierarchy;
+use clustering::{bottom_up::NodeHierarchy, sparsify};
 use ndarray::Array2;
 use ndarray_rand::rand_distr::{Distribution, UnitDisc};
 use rand::{self, Rng};
@@ -40,10 +40,12 @@ fn get_distance_matrix(data: &Array2<f64>) -> Array2<i32> {
 }
 
 fn main() {
-    let num_points = 1500;
+    let num_points = 1000;
     let cluster_size = 8;
     let points = get_random_points(num_points, num_points / cluster_size);
-    let matrix = get_distance_matrix(&points);
+    let mut matrix = get_distance_matrix(&points);
+    sparsify::interpolate_sparse_entries_with_mean(&mut matrix, 0.1);
+
     let now = Instant::now();
     let _node_hierarchy = NodeHierarchy::new(
         &matrix,
