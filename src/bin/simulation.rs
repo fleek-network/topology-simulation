@@ -99,12 +99,17 @@ type NodeStateRef = Rc<RefCell<NodeState>>;
 /// Start a node.
 async fn run_node(n: usize) {
     let state = Rc::new(RefCell::new(NodeState::default()));
+    let id = api::RemoteAddr::whoami();
 
-    // The event loop for accepting connections from the peers.
-    api::spawn(listen_for_connections(n, state.clone()));
+    api::with_state(|degrade_list: &Vec<usize>| {
+        if !degrade_list.contains(&id) {
+            // The event loop for accepting connections from the peers.
+            api::spawn(listen_for_connections(n, state.clone()));
 
-    // Make the connections.
-    api::spawn(make_connections(n, state));
+            // Make the connections.
+            api::spawn(make_connections(n, state));
+        }
+    });
 }
 
 async fn listen_for_connections(n: usize, state: NodeStateRef) {
@@ -129,11 +134,9 @@ async fn make_connections(n: usize, state: NodeStateRef) {
             .zip(repeat(state))
             .map(|(addr, state)| async move {
                 debug_assert!(*addr < n && i != *addr);
-                handle_connection(
-                    state,
-                    api::connect(addr, 80).await.expect("Could not connect."),
-                )
-                .await;
+                if let Ok(conn) = api::connect(addr, 80).await {
+                    handle_connection(state, conn).await;
+                }
             })
             .for_each(api::spawn);
     })
@@ -180,7 +183,13 @@ async fn run_client(n: usize) {
     let mut rng = ChaCha8Rng::from_seed([0; 32]);
 
     for i in 0.. {
-        let index = rng.gen_range(0..n);
+        let mut index = rng.gen_range(0..n);
+        api::with_state(|degrade_list: &Vec<usize>| {
+            while degrade_list.contains(&index) {
+                index = rng.gen_range(0..n);
+            }
+        });
+
         let addr = api::RemoteAddr::from_global_index(index);
 
         let mut conn = api::connect(addr, 80).await.expect("Connection failed.");
@@ -206,6 +215,7 @@ use simulon::latency::{
 };
 
 fn get_matrix(n: usize) -> Array2<i32> {
+    // trick to pull avg ping data of an edge from the provider
     struct MeanExtractor(u32);
     impl From<PingStat> for MeanExtractor {
         fn from(value: PingStat) -> Self {
@@ -220,7 +230,6 @@ fn get_matrix(n: usize) -> Array2<i32> {
 
     let mut provider = PingDataLatencyProvider::<MeanExtractor>::default();
     provider.init(n);
-
     let mut matrix = Array2::zeros((n, n));
     for i in 0..n {
         for j in i + 1..n {
@@ -229,17 +238,26 @@ fn get_matrix(n: usize) -> Array2<i32> {
             matrix[(j, i)] = val;
         }
     }
-
     matrix
 }
 
 pub fn main() {
     const N: usize = 1500;
+    const DEGRADE: usize = 75; // percent
 
     let mut matrix = get_matrix(N);
     sparsify::fill_sparse_entries_with_mean(&mut matrix, 0.0);
 
+    // nodes to shutdown
+    let degrade_list =
+        rand::seq::index::sample(&mut rand::thread_rng(), N, N * DEGRADE / 100).into_vec();
+    println!(
+        "running simulation with {N} nodes, and {DEGRADE}% degraded ({} active)",
+        N - degrade_list.len()
+    );
+
     // Ring
+    println!("running ring");
     let assignments: Vec<Vec<usize>> = (0..N)
         .map(|index| {
             if index == N - 1 {
@@ -252,13 +270,29 @@ pub fn main() {
     let report = SimulationBuilder::new(|| exec(N))
         .with_nodes(N + 1)
         .with_state(assignments)
+        .with_state(degrade_list.clone())
         .set_node_metrics_rate(Duration::ZERO)
         .enable_progress_bar()
         .run(Duration::from_secs(60));
-    // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_ring.json")
         .expect("failed to open json report file");
     serde_json::to_writer(file, &report).expect("failed to write json report");
+
+    // Random assignment divisive
+    println!("running random divisive");
+    let hierarchy = RandDivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
+    let assignments = hierarchy.connections();
+
+    let baseline_report = SimulationBuilder::new(|| exec(N))
+        .with_nodes(N + 1)
+        .with_state(assignments)
+        .with_state(degrade_list.clone())
+        .set_node_metrics_rate(Duration::ZERO)
+        .enable_progress_bar()
+        .run(Duration::from_secs(60));
+    let file = std::fs::File::create("simulation_report_baseline.json")
+        .expect("failed to open json report file");
+    serde_json::to_writer(file, &baseline_report).expect("failed to write json report");
 
     // Divisive
     println!("running divisive topology");
@@ -268,30 +302,13 @@ pub fn main() {
     let divisive_report = SimulationBuilder::new(|| exec(N))
         .with_nodes(N + 1)
         .with_state(assignments)
+        .with_state(degrade_list.clone())
         .set_node_metrics_rate(Duration::ZERO)
         .enable_progress_bar()
         .run(Duration::from_secs(60));
-    // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_divisive.json")
         .expect("failed to open json report file");
     serde_json::to_writer(file, &divisive_report).expect("failed to write json report");
-
-    // BaseLine
-    println!("running baseline");
-    let hierarchy = RandDivisiveHierarchy::new(&mut rand::thread_rng(), &matrix, 8);
-    let assignments = hierarchy.connections();
-
-    let baseline_report = SimulationBuilder::new(|| exec(N))
-        .with_nodes(N + 1)
-        .with_state(assignments)
-        .set_node_metrics_rate(Duration::ZERO)
-        .enable_progress_bar()
-        .run(Duration::from_secs(60));
-
-    // write out json report for the simulation
-    let file = std::fs::File::create("simulation_report_baseline.json")
-        .expect("failed to open json report file");
-    serde_json::to_writer(file, &baseline_report).expect("failed to write json report");
 
     // Bottom-Up
     println!("running bottom up");
@@ -301,11 +318,10 @@ pub fn main() {
     let bottom_up_report = SimulationBuilder::new(|| exec(N))
         .with_nodes(N + 1)
         .with_state(assignments)
+        .with_state(degrade_list)
         .set_node_metrics_rate(Duration::ZERO)
         .enable_progress_bar()
         .run(Duration::from_secs(60));
-
-    // write out json report for the simulation
     let file = std::fs::File::create("simulation_report_bottom_up.json")
         .expect("failed to open json report file");
     serde_json::to_writer(file, &bottom_up_report).expect("failed to write json report");
