@@ -237,7 +237,7 @@ where
                 continue; // This already is a medoid
             }
             // for each medoid
-            let (_change, medoid_idx) = find_best_swap(mat, &removal_loss, &data, node_idx);
+            let (change, medoid_idx) = find_best_swap(mat, &removal_loss, &data, node_idx);
             let mut tmp = med.clone();
             tmp[medoid_idx] = node_idx;
             let (new_assi, new_cost) = build_solve_graph(mat, med, min, max);
@@ -245,9 +245,9 @@ where
                 // the swap is better
                 (assi, cost) = (new_assi, new_cost);
             }
-            /*if change >= L::zero() {
+            if change >= L::zero() {
                 continue; // No improvement
-            }*/
+            }
 
             n_swaps += 1;
             lastswap = node_idx;
