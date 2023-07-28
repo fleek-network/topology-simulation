@@ -31,12 +31,11 @@ struct BroadcastConnection {
 
 impl NodeState {
     fn handle_message_internal(&mut self, id: usize, payload: Vec<u8>) {
-        assert!(
-            self.messages
-                .insert(id, Some(payload.clone()))
-                .flatten()
-                .is_none()
-        );
+        assert!(self
+            .messages
+            .insert(id, Some(payload.clone()))
+            .flatten()
+            .is_none());
 
         api::emit(String::from_utf8(payload).unwrap());
 
@@ -246,7 +245,8 @@ pub fn main() {
     const DEGRADE: usize = 75; // percent
 
     let mut matrix = get_matrix(N);
-    sparsify::fill_sparse_entries_with_mean(&mut matrix, 0.0);
+    //sparsify::fill_sparse_entries_with_mean(&mut matrix, 0.5);
+    sparsify::interpolate_sparse_entries_with_mean(&mut matrix, 0.5);
 
     // nodes to shutdown
     let degrade_list =
