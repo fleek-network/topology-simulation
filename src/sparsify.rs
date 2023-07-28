@@ -21,6 +21,34 @@ pub fn fill_sparse_entries_with_mean(matrix: &mut Array2<i32>, percent_of_missin
     }
 }
 
+pub fn fill_sparse_entries_with_max(matrix: &mut Array2<i32>, percent_of_missing_values: f32) {
+    let (n, m) = (matrix.shape()[0], matrix.shape()[1]);
+    let total = n * m;
+    let mut matrix_indices = Vec::with_capacity(total);
+    for i in 0..n {
+        for j in 0..m {
+            matrix_indices.push((i, j));
+        }
+    }
+    matrix_indices.shuffle(&mut rand::thread_rng());
+    let num_values = (matrix_indices.len() as f32 * percent_of_missing_values) as usize;
+
+    for (x, y) in matrix_indices.into_iter().take(num_values) {
+        matrix[[x, y]] = 100_000;
+    }
+}
+
+pub fn clamp_values_over(matrix: &mut Array2<i32>, value: i32) {
+    let (n, m) = (matrix.shape()[0], matrix.shape()[1]);
+    for i in 0..n {
+        for j in 0..m {
+            if matrix[[i, j]] > value {
+                matrix[[i, j]] = value;
+            }
+        }
+    }
+}
+
 pub fn interpolate_sparse_entries_with_mean(
     matrix: &mut Array2<i32>,
     percent_of_missing_values: f32,

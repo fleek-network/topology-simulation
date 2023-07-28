@@ -488,8 +488,10 @@ fn run() {
         }
     }
 
-    //sparsify::fill_sparse_entries_with_mean(&mut dissim_matrix, 0.0);
-    sparsify::interpolate_sparse_entries_with_mean(&mut dissim_matrix, 0.0);
+    //sparsify::fill_sparse_entries_with_mean(&mut dissim_matrix, 0.95);
+    //sparsify::interpolate_sparse_entries_with_mean(&mut dissim_matrix, 0.0);
+    //sparsify::fill_sparse_entries_with_max(&mut dissim_matrix, 0.95);
+    //sparsify::clamp_values_over(&mut dissim_matrix, 350000);
 
     let num_servers = dissim_matrix.shape()[0];
     let optimal_cluster_size = 10;
